@@ -21,6 +21,10 @@ A new tab page for Chrome, Edge and other Chromium browsers. Put your own photo 
 4. Click **Load unpacked** and pick the folder that has `manifest.json`
 5. Open a new tab
 
+## Video guide
+
+[![Watch the install guide](https://img.youtube.com/vi/HIBwMWksrTg/maxresdefault.jpg)](https://www.youtube.com/watch?v=HIBwMWksrTg)
+
 ## How to use
 
 - Click the **gear** (bottom right) to open settings

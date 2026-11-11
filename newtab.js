@@ -20,6 +20,7 @@ const uploadButton = document.getElementById('uploadButton');
 const wallpaperList = document.getElementById('wallpaperList');
 const tabs = [...document.querySelectorAll('.panel-tab')];
 const tabViews = [...document.querySelectorAll('.tab-content')];
+const widgetsTabButton = document.getElementById('widgetsTab');
 
 // ---- Segmented control -----------------------------------------------------------
 // A track with one thumb that slides under the selected item. The tabs use
@@ -1013,7 +1014,10 @@ function applyThemeColors(theme) {
 
 // The old Lavender (dark blue) palette moves on to the theme that is the default now,
 // but only if the user never changed those colors.
+const LEGACY_LAVENDER_KEY = 'tabby-migrate-lavender-v1';
 function migrateOldLavender() {
+  if (localStorage.getItem(LEGACY_LAVENDER_KEY)) return;
+  safeSetItem(LEGACY_LAVENDER_KEY, 'done');
   const old = { [INTERFACE_COLOR_KEY]: '#b6a3ff', [UI_BACKGROUND_KEY]: '#182333', [BUTTON_BACKGROUND_KEY]: '#202e41' };
   const stored = Object.keys(old).map(key => (localStorage.getItem(key) || '').toLowerCase());
   if (stored.every((value, i) => value === Object.values(old)[i])) applyThemeColors(BUILTIN_THEMES[0]);
@@ -1158,11 +1162,9 @@ async function storeFont(file) {
   await putRecord(FONT_KEY, { blob: file, name: file.name });
 }
 
-async function initFontSettings() {
+async function syncFontSettings() {
   const select = document.getElementById('fontSelect');
   const customOption = document.getElementById('customFontOption');
-  const uploadButton = document.getElementById('uploadFontButton');
-  const input = document.getElementById('fontInput');
   const status = document.getElementById('fontStatus');
   const stored = await getStoredFont().catch(() => null);
   const mode = normalizeFontKey(localStorage.getItem(FONT_MODE_KEY)) || 'system';
@@ -1185,6 +1187,20 @@ async function initFontSettings() {
     select.value = selected;
     applyFont(fontChoices[selected]);
   }
+  select.glideSelectRefresh?.();
+}
+
+async function initFontSettings() {
+  const select = document.getElementById('fontSelect');
+  const uploadButton = document.getElementById('uploadFontButton');
+  const input = document.getElementById('fontInput');
+  const customOption = document.getElementById('customFontOption');
+  const status = document.getElementById('fontStatus');
+  // Cross-tab sync calls this again for a changed font; only the state is refreshed
+  // then, so the change/upload listeners are never attached twice.
+  if (select.dataset.fontReady) { await syncFontSettings(); return; }
+  select.dataset.fontReady = 'true';
+  await syncFontSettings();
   select.addEventListener('change', async () => {
     if (select.value === 'custom') {
       try {
@@ -1752,9 +1768,16 @@ const T3_FIELDS = {
 };
 
 function timerApplyOptions(widget, changes) {
-  widget.options = { ...timerOptions(widget), ...changes };
+  const before = timerOptions(widget);
+  widget.options = { ...before, ...changes };
+  const after = timerOptions(widget);
   const state = timerState(widget);
-  if (!state.running) widget.state = { ...widget.state, mode: state.mode, left: timerOptions(widget)[state.mode] * 60, endsAt: null };
+  if (!state.running) {
+    // Only a changed duration restarts the countdown. Toggling sound or notifications
+    // must keep the time that is already on the clock.
+    const left = after[state.mode] !== before[state.mode] ? after[state.mode] * 60 : state.left;
+    widget.state = { ...widget.state, mode: state.mode, left, endsAt: null };
+  }
   persistWidgets();
 }
 
@@ -2163,6 +2186,8 @@ function noteLabel(note) {
   const line = note.text.split('\n').find(l => l.trim());
   return line ? line.trim().slice(0, 14) : 'New note';
 }
+
+let notesPanelCount = 0;
 function buildNotesBody(widget) {
   ensureNotes(widget);
   const body = document.createElement('div');
@@ -2172,6 +2197,7 @@ function buildNotesBody(widget) {
   const tabs = document.createElement('div');
   tabs.className = 'notes-tabs';
   tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', widget.name === 'Notes' ? 'Notes' : `${widget.name} notes`);
   const add = document.createElement('button');
   add.className = 'notes-add';
   add.type = 'button';
@@ -2185,6 +2211,11 @@ function buildNotesBody(widget) {
   area.spellcheck = false;
   area.placeholder = 'Write something…';
   area.setAttribute('aria-label', `${widget.name} note`);
+  const panel = document.createElement('div');
+  panel.className = 'notes-panel';
+  panel.id = `notes-panel-${notesPanelCount += 1}`;
+  panel.setAttribute('role', 'tabpanel');
+  panel.append(area);
   const foot = document.createElement('div');
   foot.className = 'notes-foot';
   const status = document.createElement('span');
@@ -2194,7 +2225,7 @@ function buildNotesBody(widget) {
   del.type = 'button';
   del.textContent = 'Delete note';
   foot.append(status, del);
-  body.append(head, area, foot);
+  body.append(head, panel, foot);
 
   const active = () => widget.notes.find(note => note.id === widget.activeNote);
   let timer = null;
@@ -2210,33 +2241,61 @@ function buildNotesBody(widget) {
   const leave = () => { if (body.isConnected) flush(); else window.removeEventListener('pagehide', leave); };
   window.addEventListener('pagehide', leave);
 
+  const tabFor = noteId => tabs.querySelector(`[data-note-id="${CSS.escape(noteId)}"]`);
+  const tabId = index => `${panel.id}-tab-${index}`;
+  function activate(noteId, focusArea) {
+    if (noteId !== widget.activeNote) {
+      flush();
+      resetDelete();
+      widget.activeNote = noteId;
+      persistWidgets();
+    }
+    paint(false);
+    if (focusArea) area.focus();
+    else tabFor(noteId)?.focus();
+  }
   function paint(focus) {
     ensureNotes(widget);
     tabs.replaceChildren();
-    widget.notes.forEach(note => {
+    let activeIndex = 0;
+    widget.notes.forEach((note, index) => {
       const tab = document.createElement('button');
       tab.className = 'notes-tab';
       tab.type = 'button';
+      tab.id = tabId(index);
       tab.dataset.noteId = note.id;
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(note.id === widget.activeNote));
+      tab.setAttribute('aria-controls', panel.id);
+      tab.tabIndex = note.id === widget.activeNote ? 0 : -1;
       tab.textContent = noteLabel(note);
-      tab.addEventListener('click', () => {
-        if (note.id === widget.activeNote) return;
-        flush();
-        resetDelete();
-        widget.activeNote = note.id;
-        persistWidgets();
-        paint(true);
-      });
+      if (note.id === widget.activeNote) activeIndex = index;
+      tab.addEventListener('click', () => activate(note.id, true));
       tabs.append(tab);
     });
+    panel.setAttribute('aria-labelledby', tabId(activeIndex));
     add.hidden = widget.notes.length >= NOTES_MAX;
     area.value = active().text;
     status.textContent = '';
-    tabs.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    tabFor(widget.activeNote)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     if (focus) area.focus();
   }
+  // The tab strip is one tab stop: arrows, Home and End move the selection and
+  // focus together, the way the settings tabs do.
+  tabs.addEventListener('keydown', event => {
+    const items = [...tabs.querySelectorAll('.notes-tab')];
+    const index = items.indexOf(document.activeElement);
+    if (index < 0) return;
+    let next = -1;
+    if (event.key === 'ArrowRight') next = (index + 1) % items.length;
+    else if (event.key === 'ArrowLeft') next = (index - 1 + items.length) % items.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = items.length - 1;
+    else return;
+    event.preventDefault();
+    const note = widget.notes[next];
+    if (note) activate(note.id, false);
+  });
   area.addEventListener('input', () => {
     const note = active();
     note.text = area.value;
@@ -2307,6 +2366,7 @@ function refreshWidgetCard(widget) {
   const old = widgetLayer.querySelector(`[data-widget-id="${CSS.escape(widget.id)}"]`);
   renderWidgetInstance(widget);
   old?.remove();
+  scheduleOverlapPass();
   applyWidgetStacking();
 }
 
@@ -2449,7 +2509,8 @@ function themeSurfaceColor(fallback = '#34322e') {
 function applyWidgetAppearance(widget, card) {
   const color = /^#[\da-f]{6}$/i.test(widget.appearance?.backgroundColor || '') ? widget.appearance.backgroundColor : themeSurfaceColor();
   const savedOpacity = widget.appearance?.opacity;
-  const opacity = Math.max(0, Math.min(100, savedOpacity == null ? 85 : Number(savedOpacity)));
+  const savedOpacityNumber = Number(savedOpacity);
+  const opacity = savedOpacity == null || !Number.isFinite(savedOpacityNumber) ? 85 : Math.max(0, Math.min(100, savedOpacityNumber));
   card.style.backgroundColor = `color-mix(in srgb, ${color} ${opacity}%, transparent)`;
   card.classList.toggle('no-outline', widget.appearance?.outline === false);
   const textColor = /^#[\da-f]{6}$/i.test(widget.appearance?.textColor || '') ? widget.appearance.textColor : '';
@@ -2688,7 +2749,7 @@ function renderWidgetsPanel() {
       opacity.max = '100';
       opacity.step = '1';
       const savedOpacity = widget.appearance?.opacity;
-      opacity.value = String(Math.max(0, Math.min(100, savedOpacity == null ? 85 : Number(savedOpacity))));
+      opacity.value = String(savedOpacity == null || !Number.isFinite(Number(savedOpacity)) ? 85 : Math.max(0, Math.min(100, Number(savedOpacity))));
       opacityValue.value = `${opacity.value}%`;
       opacityLabel.append(opacityValue);
       opacity.addEventListener('input', () => {
@@ -2839,9 +2900,14 @@ function renderOptionsEditor(widget, list) {
   if (isTimerType(widget.type)) {
     const options = timerOptions(widget);
     const apply = changes => {
-      widget.options = { ...options, ...widget.options, ...changes };
+      const before = timerOptions(widget);
+      widget.options = { ...before, ...changes };
+      const after = timerOptions(widget);
       const state = timerState(widget);
-      if (!state.running) widget.state = { ...widget.state, mode: state.mode, left: timerOptions(widget)[state.mode] * 60, endsAt: null };
+      if (!state.running) {
+        const left = after[state.mode] !== before[state.mode] ? after[state.mode] * 60 : state.left;
+        widget.state = { ...widget.state, mode: state.mode, left, endsAt: null };
+      }
       persistWidgets();
       refreshWidgetCard(widget);
     };
@@ -3063,7 +3129,8 @@ function renderBookmarkEditor(widget, list) {
     renderExpandableBookmarkEditor(widget, list);
     return;
   }
-  emptyShortcuts(widget.shortcuts).forEach((shortcut, index) => {
+  widget.shortcuts = emptyShortcuts(widget.shortcuts);
+  widget.shortcuts.forEach((shortcut, index) => {
     const row = document.createElement('div');
     row.className = 'bookmark-editor-row';
     const { group, nameInput, urlInput } = buildShortcutInputGroup(shortcut);
@@ -3321,6 +3388,7 @@ shortcutForm.addEventListener('submit', event => {
   const widget = widgets.find(item => item.id === editingWidgetId);
   if (!widget || editingSlot === null) return;
   try {
+    if (!Array.isArray(widget.shortcuts)) widget.shortcuts = widget.type === 'favorites-v2' ? [] : emptyShortcuts();
     widget.shortcuts[editingSlot] = { name: shortcutName.value.trim(), url: normalizeWebsite(shortcutUrl.value) };
     safeSetItem(WIDGETS_KEY, JSON.stringify(widgets));
     shortcutDialog.close();
@@ -3510,7 +3578,8 @@ function renderWallpaper(item) {
 }
 
 settingsButton.addEventListener('click', () => {
-  if (!wallpaperPanel.hidden) { closeWallpaperPanel(); return; }
+  if (!wallpaperPanel.hidden && !wallpaperPanel.classList.contains('is-closing')) { closeWallpaperPanel(); return; }
+  cancelPanelClose();
   wallpaperPanel.hidden = false;
   wallpaperPanel.setAttribute('aria-hidden', 'false');
   settingsButton.setAttribute('aria-expanded', 'true');
@@ -3689,7 +3758,11 @@ new MutationObserver(() => { panelLayer.hidden = wallpaperPanel.hidden; })
   .observe(wallpaperPanel, { attributes: true, attributeFilter: ['hidden'] });
 new MutationObserver(() => {
   const open = widgetEditorSlot.childElementCount > 0;
-  if (open && editorLayer.hidden) document.body.dataset.front = 'editor';
+  if (open && editorLayer.hidden) {
+    document.body.dataset.front = 'editor';
+    widgetEditorSlot.classList.add('is-opening'); // 0.5s slide-in, only when it first opens
+    setTimeout(() => widgetEditorSlot.classList.remove('is-opening'), 500);
+  }
   editorLayer.hidden = !open;
 }).observe(widgetEditorSlot, { childList: true });
 window.addEventListener('resize', () => {
@@ -3698,12 +3771,24 @@ window.addEventListener('resize', () => {
 });
 applyFrames();
 
+// Closing plays a 0.2s fade-out before the panel is actually hidden.
+let panelCloseTimer = 0;
+function cancelPanelClose() {
+  clearTimeout(panelCloseTimer);
+  panelCloseTimer = 0;
+  wallpaperPanel.classList.remove('is-closing');
+}
 function closeWallpaperPanel() {
   openEditorWidgetId = null;
   renderWidgetsPanel();
-  wallpaperPanel.hidden = true;
   wallpaperPanel.setAttribute('aria-hidden', 'true');
   settingsButton.setAttribute('aria-expanded', 'false');
+  if (wallpaperPanel.hidden || panelCloseTimer) return;
+  wallpaperPanel.classList.add('is-closing');
+  panelCloseTimer = setTimeout(() => {
+    cancelPanelClose();
+    wallpaperPanel.hidden = true;
+  }, 200);
 }
 
 document.addEventListener('keydown', event => {
@@ -3754,6 +3839,7 @@ fileInput.addEventListener('change', async () => {
   try {
     await saveBackground(file);
     showBackground({ blob: file, type: file.type, name: file.name });
+    turnOffWater();
     notify({ type: 'success', title: 'Wallpaper set', message: 'Your new tab background is ready.', duration: 3000 });
   } catch (error) {
     console.error('Could not save background:', error);
@@ -3765,6 +3851,7 @@ fileInput.addEventListener('change', async () => {
 document.addEventListener('dragover', event => event.preventDefault());
 document.addEventListener('drop', event => {
   event.preventDefault();
+  closeDropWindow();
   const file = event.dataTransfer?.files?.[0];
   if (!file) return;
   if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) return;
@@ -4240,6 +4327,16 @@ waterToggle.addEventListener('change', () => {
   pumpWater();
   haptic('soft');
 });
+
+// A wallpaper replaces the animated background, so uploading one turns the water off
+// for good: the switch, the saved choice and the canvas all follow.
+function turnOffWater() {
+  if (!water.on) return;
+  water.on = false;
+  if (waterToggle) waterToggle.checked = false;
+  safeSetItem(WATER_KEY, '0');
+  pumpWater();
+}
 const savedSpeed = Number(localStorage.getItem(WATER_SPEED_KEY));
 water.speed = Number.isFinite(savedSpeed) && savedSpeed > 0 ? Math.min(1.5, Math.max(0.05, savedSpeed)) : 0.25;
 if (waterSpeed) {
@@ -5623,8 +5720,9 @@ function sanitizeWidgets(list) {
     if (isFavoritesType(type) && typeof item.options?.scaleTogether === 'boolean') widget.options = { scaleTogether: item.options.scaleTogether };
     const scale = cleanNumber(item.scale, 0.5, 2.5);
     if (scale !== null && isFavoritesType(type)) widget.scale = scale;
+    const defaultSurface = type === 'timer-v3' ? '#050505' : themeSurfaceColor();
     widget.appearance = {
-      backgroundColor: HEX_COLOR.test(item.appearance?.backgroundColor || '') ? item.appearance.backgroundColor : '#2a2439',
+      backgroundColor: HEX_COLOR.test(item.appearance?.backgroundColor || '') ? item.appearance.backgroundColor : defaultSurface,
       opacity: cleanNumber(item.appearance?.opacity, 0, 100) ?? 85,
       outline: item.appearance?.outline !== false,
       blur: blurAmount({ type, appearance: item.appearance }),
@@ -5679,7 +5777,12 @@ async function applyBackup(data, media = {}) {
   if (restored) put(WIDGETS_KEY, JSON.stringify(restored));
   // 2) Big files first (the step most likely to run out of space), with a check that they fit.
   const needed = (font ? font.size : 0) + (wallpaper ? wallpaper.size : 0);
-  if (needed) await ensureSpaceFor(needed);
+  if (needed) {
+    let replacing = 0;
+    if (font) replacing += (await getStoredFont().catch(() => null))?.blob?.size || 0;
+    if (wallpaper) replacing += (await readBackground().catch(() => null))?.blob?.size || 0;
+    await ensureSpaceFor(needed, replacing);
+  }
   if (font) await storeFont(font);
   if (wallpaper) await saveBackground(wallpaper);
   // 3) Small settings last. If the browser refuses one, put every setting back the way it was.
@@ -5910,7 +6013,7 @@ window.addEventListener('storage', event => {
     if (!moveMode && !isEditingNotes) {
       widgets = loadWidgets();
       renderWidgets();
-      if (!wallpaperPanel.hidden && widgetsTab.classList.contains('active')) {
+      if (!wallpaperPanel.hidden && widgetsTabButton.classList.contains('active')) {
         renderWidgetsPanel();
       }
     }

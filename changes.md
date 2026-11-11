@@ -2,6 +2,52 @@
 
 Newest first. Each entry says what changed, in which files, and why.
 
+## 2026-11-11 - Notes tabs are keyboard accessible
+
+**Asked for:** the Notes widget's tab strip should work from the keyboard and use proper tab roles.
+
+**newtab.js**
+- The strip is a real tablist now: it has an `aria-label`, every tab has an `id`, `aria-controls` pointing at the note panel and a roving `tabIndex` (selected tab 0, the others -1). The textarea sits in a `role="tabpanel"` container whose `aria-labelledby` follows the selected tab.
+- Arrow Left/Right move the selection (wrapping at the ends), Home and End jump to the first and last note; selecting a tab activates it and moves focus to that tab. A mouse click still switches the note and puts the caret in the textarea.
+- Switching notes goes through one `activate()` helper, so the click and keyboard paths flush the pending save and reset the delete confirmation the same way.
+
+**newtab.css** - `.notes-panel` keeps the textarea filling the card now that it sits in the tabpanel; `.notes-tab:focus-visible` draws the accent focus ring.
+
+**Checked** - `node --check newtab.js`; served over localhost, a Notes widget with two notes reported `role="tablist"`, two tabs with matching `aria-controls`, `aria-selected`/`tabIndex` moving `[true,false]`/`[0,-1]` to `[false,true]`/`[-1,0]` on ArrowRight, wrapping from the last tab to the first on the next ArrowRight, Home returning to the first note, the panel's `aria-labelledby` following the selected tab, and a click selecting the second note and focusing the textarea (`value` "Second note"). No console errors beyond the expected missing favicon.
+
+## 2026-11-11 - Bug sweep: timer options, font sync and restore
+
+**newtab.js only**
+
+- **Toggling Sound or Notifications reset a paused Pomodoro.** `timerApplyOptions()` (Timer V2) and the Timer V1 editor both rewrote `state.left` to the full duration on every option change. They now compare the current mode's duration before and after and only reset the countdown when it actually changed.
+- **Cross-tab font changes bound duplicate listeners.** The `storage` handler called `initFontSettings()`, which attached another `change` handler to the select and the file input each time. The state refresh moved to `syncFontSettings()`; `initFontSettings()` binds the listeners once (`dataset.fontReady`) and re-syncs after that.
+- **`migrateOldLavender()` ran on every load**, so re-picking the old Lavender palette was moved back to Stone on each new tab. It now runs once, guarded by `tabby-migrate-lavender-v1`, like the Stone migration.
+- **Restored widgets came back purple.** `sanitizeWidgets()` used the removed `#2a2439` fallback and also overrode Timer V2's dark card. The fallback is the live theme surface, with `#050505` kept for `timer-v3`.
+- **A backup restore could report a full disk even when it was replacing a similar-size wallpaper or font.** The preflight now subtracts the size of the files being replaced.
+- **A Favorites widget missing its `shortcuts` array crashed the editor** when a slot was written. The editor and the shortcut dialog now create the array first.
+- **Dropping a non-photo/video left the drop window open** and the drag-depth counter stuck. The drop handler closes the window before validating the file.
+- **Smaller fixes:** `refreshWidgetCard()` re-runs the overlap pass after replacing a card; the storage handler uses a declared `widgetsTabButton` instead of the id-based global; a non-numeric saved opacity falls back to 85 instead of producing an invalid `color-mix()`.
+
+**Checked** - `node --check newtab.js`; served over localhost, the page loaded through its whole init with no console errors (only the expected missing-favicon 404 and the GitHub "no release" 404); in the running page, `timerApplyOptions(widget, { sound: false })` kept a paused 600s countdown at 600 while `{ focus: 30 }` reset it to 1800, `sanitizeWidgets()` gave `#34322e` (the Stone surface) for a clock and `#050505` for `timer-v3`, and the font setup ran through the new `syncFontSettings()` path. The drop-window close, the shortcut-array guard, the one-time migration flag and the backup space preflight were verified by reading the changed paths, not by driving the extension.
+
+## 2026-11-11 - A wallpaper turns the water background off
+
+**Asked for:** uploading a wallpaper should switch the moving water background off.
+
+**newtab.js**
+- `turnOffWater()` stops the water: `water.on = false`, unchecks `#waterToggle`, saves `tabby-water-background` as `'0'` and calls `pumpWater()`, which hides the canvas and drops the animation frame.
+- The wallpaper upload handler calls it right after `saveBackground()` / `showBackground()`, so "Choose a file" and dropping a file on the page both do it.
+
+**Checked** - in the browser, before the upload `water.on` was true with the switch on; after it `on` was false, the switch off, storage `'0'`, the canvas hidden, no animation frame left, the wallpaper applied and the success toast shown.
+
+## 2026-11-11 - Settings tabs line up across the strip
+
+**Asked for:** Background on the left, Widgets in the centre, Settings at the right end where the rule stops.
+
+**newtab.css** - `.panel-tabs` is a grid now: `grid-template-columns: 1fr auto 1fr`, the first tab `justify-self: start` and the last `justify-self: end`, so the middle tab sits in the exact centre of the strip.
+
+**Checked** - measured in the browser: strip 949-1239 px (centre 1094), Widgets centred at 1094, Background flush at 949, Settings flush at 1239.
+
 ## 2026-11-11 - SVG icons moved into icons/
 
 **Asked for:** keep every icon inside the `icons` folder instead of loose in the project root.

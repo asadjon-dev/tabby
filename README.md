@@ -42,4 +42,4 @@ Issues and pull requests are welcome. There is no build step: edit the files, th
 
 ## License
 
-MIT. See [LICENSE](LICENSE). Icons by REICON (MIT), see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT. See [LICENSE](LICENSE). Icons by REICON, component designs from Board UI and water backgrounds ported from React Bits; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

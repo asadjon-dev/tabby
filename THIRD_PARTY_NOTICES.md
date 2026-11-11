@@ -1,5 +1,9 @@
 # Third-party notices
 
+Tabby includes or adapts work from the projects below.
+
+## REICON - reicon.dev
+
 Some interface icons in this extension come from REICON and are used under the MIT License. The Tabby app icon and the move icon were created for this project.
 
 ```
@@ -24,3 +28,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Board UI - boardui.com
+
+The colour picker and the segmented control follow component designs published by Board UI. They are reimplemented here in plain HTML, CSS and JavaScript for a Chrome extension; no Board UI package code is bundled.
+
+## React Bits - reactbits.dev
+
+The four water backgrounds (Flux Lines, Liquid Ether, Color Bends, Soft Aura) are ports of React Bits components. The originals are React and three.js; they were rewritten as plain WebGL2 shaders for this extension, so no React or three.js code is bundled.

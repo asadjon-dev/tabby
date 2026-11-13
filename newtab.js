@@ -4321,22 +4321,50 @@ function tickWater(now) {
 const savedWater = localStorage.getItem(WATER_KEY);
 water.on = savedWater === null ? true : savedWater === '1';
 waterToggle.checked = water.on;
-const waterOptions = document.getElementById('waterOptions');
-const waterSettings = waterOptions ? waterOptions.closest('.water-settings') : null;
+const waterSettings = document.getElementById('waterOptions')?.closest('.water-settings');
 function syncWaterOptions() {
   const off = !water.on;
-  if (waterSettings) waterSettings.classList.toggle('is-off', off);
-  if (waterOptions) waterOptions.setAttribute('aria-disabled', String(off));
-  if (waterStyleSelect) waterStyleSelect.disabled = off;
+  waterSettings?.classList.toggle('is-off', off);
+  [waterStyleSelect, waterInteractive, waterSpeed].forEach(control => {
+    if (control) control.disabled = off;
+  });
   const glideTrigger = document.getElementById('waterStyle-glide-trigger');
   if (glideTrigger) {
     glideTrigger.disabled = off;
     glideTrigger.setAttribute('aria-disabled', String(off));
   }
-  if (waterInteractive) waterInteractive.disabled = off;
-  if (waterSpeed) waterSpeed.disabled = off;
 }
 syncWaterOptions();
+
+const appTooltip = document.getElementById('appTooltip');
+
+function showTooltip(anchor) {
+  const text = anchor.dataset.tooltip;
+  if (!appTooltip || !text) return;
+  appTooltip.textContent = text;
+  appTooltip.hidden = false;
+  const bubble = appTooltip.getBoundingClientRect();
+  const rect = anchor.getBoundingClientRect();
+  const left = Math.max(12, Math.min(rect.left + rect.width / 2 - bubble.width / 2, window.innerWidth - bubble.width - 12));
+  let top = rect.bottom + 8;
+  if (top + bubble.height > window.innerHeight - 12) top = rect.top - bubble.height - 8;
+  appTooltip.style.left = `${left}px`;
+  appTooltip.style.top = `${top}px`;
+}
+
+function hideTooltip() {
+  if (appTooltip) appTooltip.hidden = true;
+}
+
+document.querySelectorAll('[data-tooltip]').forEach(anchor => {
+  anchor.addEventListener('pointerenter', () => showTooltip(anchor));
+  anchor.addEventListener('pointerleave', hideTooltip);
+  anchor.addEventListener('focus', () => showTooltip(anchor));
+  anchor.addEventListener('blur', hideTooltip);
+});
+window.addEventListener('resize', hideTooltip);
+window.addEventListener('scroll', hideTooltip, true);
+
 waterToggle.addEventListener('change', () => {
   water.on = waterToggle.checked;
   safeSetItem(WATER_KEY, water.on ? '1' : '0');
@@ -6559,7 +6587,6 @@ const WIDGET_HELP = {
   'timer-v3': 'A dark Pomodoro card with a ring that burns down, session dots and built-in settings.',
   weather: 'Current temperature and today\u2019s high and low for your city.'
 };
-const widgetsEmpty = document.getElementById('widgetsEmpty');
 const uploadLabel = document.getElementById('uploadLabel');
 const moveWidgetsButton = document.getElementById('moveWidgetsButton');
 const moveBanner = document.getElementById('moveBanner');
@@ -6572,7 +6599,6 @@ let pendingDeleteId = null;
 function syncEmptyStates() {
   const hasWidgets = widgetList.childElementCount > 0;
   uploadLabel.textContent = 'Set photo or video';
-  widgetsEmpty.hidden = hasWidgets;
   moveWidgetsButton.hidden = !hasWidgets;
 }
 new MutationObserver(syncEmptyStates).observe(wallpaperList, { childList: true });

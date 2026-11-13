@@ -1744,10 +1744,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 
 /* ---------- Guidance: intros, empty states, close, hints ---------- */
 .tab-intro { margin: 0 0 14px; color: var(--tabby-text-dim); font-size: 13px; line-height: 1.5; }
-.empty-state { margin: 0 0 14px; padding: 16px; border: 1px solid var(--tabby-line); border-radius: var(--tabby-radius-md); }
-.empty-state[hidden] { display: none; }
-.empty-state h2 { margin: 0 0 6px; font-size: 15px; }
-.empty-state p { margin: 0; color: var(--tabby-text-dim); font-size: 13px; line-height: 1.5; }
 .widget-list + .add-widget-button { margin-top: 16px; }
 .add-widget-button[hidden] { display: none; }
 .row-title { color: var(--tabby-text); font-size: 13px; font-weight: 600; }
@@ -2004,7 +2000,6 @@ body.panel-dragging[data-panel-edge="nw"], body.panel-dragging[data-panel-edge="
 .row-title { font-size: 14px; }
 .wallpaper-panel p { line-height: 1.5; }
 .wallpaper-panel h2 { font-size: 14px; line-height: 1.2; }
-.wallpaper-panel .empty-state h2 { font-size: 16px; }
 
 /* ---------- Motion pass: rolling digits, celebration, skeleton, water ---------- */
 html { background: var(--tabby-ui-background); }
@@ -2031,19 +2026,21 @@ html { background: var(--tabby-ui-background); }
 
 .water-layer { position: absolute; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; }
 .water-layer[hidden] { display: none; }
-.water-toggle { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; color: #fff; font-size: 13px; cursor: pointer; }
+.water-toggle { display: flex; align-items: center; gap: 8px; color: #fff; font-size: 13px; cursor: pointer; }
 .water-toggle input { width: 16px; height: 16px; margin: 0; accent-color: var(--tabby-accent); cursor: pointer; }
 .water-speed { display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; color: #fff; font-size: 13px; }
 .water-speed label { flex: 0 0 auto; }
 .water-speed input[type="range"] { flex: 1 1 auto; min-width: 0; margin: 0; accent-color: var(--tabby-accent); cursor: pointer; }
-.water-master-row {
+.water-toggle-row {
   display: flex;
   align-items: center;
   gap: 6px;
   margin: 0 0 2px;
 }
+.water-options > .water-toggle-row {
+  margin-top: 16px;
+}
 .water-master {
-  margin: 0;
   font-weight: 600;
 }
 .water-info {
@@ -2056,13 +2053,34 @@ html { background: var(--tabby-ui-background); }
   color: var(--tabby-text-dim);
   cursor: help;
 }
-.water-info:hover,
+.water-info:hover {
+  color: var(--tabby-accent-light);
+}
 .water-info:focus-visible {
   color: var(--tabby-accent-light);
-  outline: none;
+  border-radius: 50%;
+  outline: 2px solid var(--tabby-accent);
+  outline-offset: 2px;
 }
 .water-info svg {
   display: block;
+}
+.app-tooltip {
+  position: fixed;
+  z-index: 30;
+  max-width: min(320px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--tabby-accent) 25%, rgba(255, 255, 255, 0.22));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--tabby-ui-background) 94%, #000);
+  color: #fff;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  font: 500 13px/1.5 var(--tabby-font);
+  white-space: pre-line;
+  pointer-events: none;
+}
+.app-tooltip[hidden] {
+  display: none;
 }
 .water-radio input {
   appearance: none;
@@ -2102,7 +2120,7 @@ html { background: var(--tabby-ui-background); }
   transition: opacity 0.2s;
 }
 .water-settings.is-off .water-options {
-  opacity: 0.4;
+  opacity: 0;
   pointer-events: none;
 }
 .water-speed-value { flex: 0 0 auto; min-width: 32px; text-align: right; color: var(--tabby-text-dim); font-variant-numeric: tabular-nums; }

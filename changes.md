@@ -2,6 +2,97 @@
 
 Newest first. Each entry says what changed, in which files, and why.
 
+## 2026-11-11 - One tooltip for every help card
+
+**Asked for:** review the recent tooltip additions and unify them where the approach is cleaner.
+
+**newtab.html** - the three settings cards (`siteIconsToggle`, `autoHideControlsToggle`, backup) switch from native `title` to `data-tooltip`; the bubble is renamed `#appTooltip` / `.app-tooltip`.
+**newtab.js** - one general `showTooltip()` / `hideTooltip()` pair now attaches to every `[data-tooltip]` anchor, so the water info icons and the cards share the same styled bubble instead of mixing native and custom tooltips.
+**newtab.css** - `.water-tooltip` becomes `.app-tooltip` and serves both.
+
+**Checked** - `node --check newtab.js`; in the browser the water info icons still show the two-line bubble, the three cards show the same bubble with their help text, and both hide on pointer-leave with no console errors.
+
+## 2026-11-11 - Browser tooltips on the toggle cards
+
+**Asked for:** add the same browser tooltip to the Site icons and Corner buttons cards.
+
+**newtab.html** - the `.custom-color-row` wrappers for `siteIconsToggle` and `autoHideControlsToggle` now carry `title` with their help text, so hovering either card shows the native browser tooltip.
+
+**Checked** - inspected both attributes; no other changes.
+
+## 2026-11-11 - Browser tooltip on the backup card
+
+**Asked for:** add a browser tooltip to the Backup and restore card.
+
+**newtab.html** - the `.backup-row` card now has a `title` with its explanation, so hovering it shows the native browser tooltip.
+
+**Checked** - inspected the attribute; no other changes.
+
+## 2026-11-11 - Remove the widgets empty-state card
+
+**Asked for:** remove the "No widgets yet" card from the Widgets tab.
+
+**newtab.html** - dropped the `#widgetsEmpty` section.
+**newtab.js** - removed the `widgetsEmpty` element lookup and its toggle in `syncEmptyStates()`.
+**newtab.css** - removed the now-unused `.empty-state` rules and the panel-specific heading override.
+
+**Checked** - no `empty-state` or `widgetsEmpty` references remain; `node --check newtab.js` passes.
+
+## 2026-11-11 - Styled hover tooltips for the water info icons
+
+**Asked for:** replace the native browser tooltip on the info icons with the dark rounded bubble from the reference.
+
+**newtab.html** - the two `.water-info` icons drop `title` and carry `data-tooltip` instead; a single `#waterTooltip` bubble (`role="tooltip"`) sits before the script. The help text keeps its `aria-label` for screen readers.
+**newtab.css** - `.water-tooltip` is a fixed-position dark bubble with a 10px radius, a light accent border, 13px/1.5 text and a soft shadow.
+**newtab.js** - `showWaterTooltip()` measures the icon, sets the text, clamps the bubble to the viewport and places it 8px below the icon (above when there is no room); hover, focus, resize and scroll show/hide it.
+
+**Checked** - `node --check newtab.js`; in the browser the bubble opens on hover with two lines, a dark background, a visible border and no native tooltip, and hides on pointerleave.
+
+## 2026-11-11 - Two-line Interactive help tooltip
+
+**Asked for:** break the Interactive info icon's hover help the same way as the master switch.
+
+**newtab.html** - the Interactive `.water-info` `title` now breaks after "towards it,":
+"The cursor pulls the lines towards it,"
+"and a click stirs them into a swirl."
+The `aria-label` stays a single sentence.
+
+**Checked** - inspected the attribute; the sentences are separated by a newline character.
+
+## 2026-11-11 - Clean up the water/settings styles
+
+**Asked for:** review the recent water/settings UI changes with fresh eyes and simplify duplicated CSS and markup.
+
+**newtab.css** - dropped the toggle's own `margin` and the row override that cancelled it, plus the redundant `margin: 0` on `.water-master`; split `.water-info` hover/focus so keyboard focus keeps a visible accent ring instead of `outline: none`.
+**newtab.js** - `syncWaterOptions()` now toggles the section class, loops over the three controls to set `disabled`, and disables the glide trigger. Removed the extra `waterOptions` variable and the meaningless `aria-disabled` on the wrapper.
+
+**Checked** - `node --check newtab.js`; in the browser off/on still disables and re-enables every control (opacity 0/1), the Interactive row keeps its 16px gap, and there were no console errors.
+
+## 2026-11-11 - Breathing room between the water style and Interactive
+
+**Asked for:** add space between the Flux Lines dropdown and the Interactive row.
+
+**newtab.css** - `.water-options > .water-toggle-row` gets `margin-top: 16px`, so only the Interactive row below the style select gains the gap.
+
+**Checked** - inspected the rule; the master row above the options is unaffected.
+
+## 2026-11-11 - Interactive help as a hover info icon
+
+**Asked for:** give the Interactive row the same info icon and hover help as the master switch.
+
+**newtab.html** - wrapped the Interactive label in a `.water-toggle-row` and replaced its help paragraph with a `.water-info` icon whose `title`/`aria-label` carry "The cursor pulls the lines towards it, and a click stirs them into a swirl."
+**newtab.css** - generalized `.water-master-row` to `.water-toggle-row` for both rows, with the toggle labels' margins zeroed inside a row.
+
+**Checked** - inspected the markup; both rows now share the same structure and icon.
+
+## 2026-11-11 - Hide water options completely when the master switch is off
+
+**Asked for:** the disabled water controls should be invisible (`opacity: 0`), not just dimmed.
+
+**newtab.css** - `.water-settings.is-off .water-options` now uses `opacity: 0` instead of `0.4`, still with `pointer-events: none`. The space stays reserved so the panel does not jump.
+
+**Checked** - inspected the rule; the disabled controls remain `disabled` and invisible.
+
 ## 2026-11-11 - Remove the redundant Water background label
 
 **Asked for:** remove the "Water background" label sitting above the Flux Lines dropdown.

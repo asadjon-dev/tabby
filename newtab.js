@@ -3936,7 +3936,15 @@ const waterStyleSelect = document.getElementById('waterStyle');
 const waterClickQueue = [];
 const waterSpeed = document.getElementById('waterSpeed');
 const waterSpeedValue = document.getElementById('waterSpeedValue');
-const water = { on: false, frame: null, last: 0, time: 0, timeAt: 0, reveal: 0, interactive: true, speed: 0.25, style: 'flux', colors: null, colorsAt: 0, light: false, batteryPaused: false, gl: null, program: null, uniforms: null, vao: null, palette: null, initTried: false, bands: false, broken: false };
+const WATER_BG_KEY = 'tabby-water-background-color';
+const WATER_LINE_KEY = 'tabby-water-line-color';
+const waterAdvanced = document.getElementById('waterAdvanced');
+const waterAdvancedButton = document.getElementById('waterAdvancedButton');
+const waterAdvancedPanel = document.getElementById('waterAdvancedPanel');
+const waterBgInput = document.getElementById('waterBackgroundColor');
+const waterBackgroundReset = document.getElementById('waterBackgroundReset');
+const waterLineInput = document.getElementById('waterLineColor');
+const water = { on: false, frame: null, last: 0, time: 0, timeAt: 0, reveal: 0, interactive: true, speed: 0.25, style: 'flux', colors: null, colorsAt: 0, lineColor: null, light: false, batteryPaused: false, gl: null, program: null, uniforms: null, vao: null, palette: null, initTried: false, bands: false, broken: false };
 
 const WATER_MAX_COLORS = 8;
 const WATER_VERTEX = `#version 300 es
@@ -4083,11 +4091,13 @@ void main() {
 
 // A light theme needs ink on top of the page instead of glowing light.
 function waterLightTheme() {
-  const back = waterParse(getComputedStyle(document.documentElement).getPropertyValue('--tabby-ui-background'));
+  const custom = waterLayer.style.backgroundColor;
+  const back = waterParse(custom || getComputedStyle(document.documentElement).getPropertyValue('--tabby-ui-background'));
   return back[0] * 0.299 + back[1] * 0.587 + back[2] * 0.114 > 0.6;
 }
 
 const waterColors = () => {
+  if (water.lineColor) return [water.lineColor, water.lineColor, water.lineColor];
   const styles = getComputedStyle(document.documentElement);
   const read = (name, fallback) => styles.getPropertyValue(name).trim() || fallback;
   return [read('--tabby-accent', '#a5a58d'), read('--tabby-accent-light', '#c9c9b9'), read('--tabby-accent', '#a5a58d')];
@@ -4325,9 +4335,13 @@ const waterSettings = document.getElementById('waterOptions')?.closest('.water-s
 function syncWaterOptions() {
   const off = !water.on;
   waterSettings?.classList.toggle('is-off', off);
-  [waterStyleSelect, waterInteractive, waterSpeed].forEach(control => {
+  [waterStyleSelect, waterInteractive, waterSpeed, waterAdvancedButton].forEach(control => {
     if (control) control.disabled = off;
   });
+  document.querySelectorAll('#waterBackgroundColor + .color-swatch, #waterLineColor + .color-swatch').forEach(button => {
+    button.disabled = off;
+  });
+  if (waterBackgroundReset) waterBackgroundReset.disabled = off || !localStorage.getItem(WATER_BG_KEY);
   const glideTrigger = document.getElementById('waterStyle-glide-trigger');
   if (glideTrigger) {
     glideTrigger.disabled = off;
@@ -4392,6 +4406,61 @@ if (waterSpeed) {
     water.speed = Math.min(1.5, Math.max(0.05, Number(waterSpeed.value) || 0.25));
     if (waterSpeedValue) waterSpeedValue.textContent = water.speed.toFixed(2);
     safeSetItem(WATER_SPEED_KEY, String(water.speed));
+  });
+}
+
+if (waterAdvancedButton) {
+  waterAdvancedButton.addEventListener('click', () => {
+    const open = waterAdvancedButton.getAttribute('aria-expanded') !== 'true';
+    waterAdvancedButton.setAttribute('aria-expanded', String(open));
+    waterAdvanced.dataset.open = String(open);
+    waterAdvancedPanel.hidden = !open;
+  });
+}
+
+if (waterBgInput) {
+  const savedBackground = cssColorToHex(localStorage.getItem(WATER_BG_KEY));
+  if (savedBackground) {
+    waterBgInput.value = savedBackground;
+    waterLayer.style.backgroundColor = savedBackground;
+  } else {
+    const themeBackground = cssColorToHex(getComputedStyle(document.documentElement).getPropertyValue('--tabby-ui-background'));
+    if (themeBackground) waterBgInput.value = themeBackground;
+  }
+  waterBgInput.addEventListener('input', () => {
+    const color = cssColorToHex(waterBgInput.value);
+    if (!color) return;
+    waterLayer.style.backgroundColor = color;
+    safeSetItem(WATER_BG_KEY, color);
+    if (waterBackgroundReset) waterBackgroundReset.disabled = false;
+  });
+}
+
+if (waterBackgroundReset) {
+  waterBackgroundReset.addEventListener('click', () => {
+    localStorage.removeItem(WATER_BG_KEY);
+    waterLayer.style.backgroundColor = '';
+    const themeBackground = cssColorToHex(getComputedStyle(document.documentElement).getPropertyValue('--tabby-ui-background'));
+    if (waterBgInput && themeBackground) waterBgInput.value = themeBackground;
+    waterBackgroundReset.disabled = true;
+  });
+}
+
+if (waterLineInput) {
+  const savedLine = cssColorToHex(localStorage.getItem(WATER_LINE_KEY));
+  if (savedLine) {
+    water.lineColor = savedLine;
+    waterLineInput.value = savedLine;
+  } else {
+    const themeLine = cssColorToHex(getComputedStyle(document.documentElement).getPropertyValue('--tabby-accent'));
+    if (themeLine) waterLineInput.value = themeLine;
+  }
+  waterLineInput.addEventListener('input', () => {
+    const color = cssColorToHex(waterLineInput.value);
+    if (!color) return;
+    water.lineColor = color;
+    water.colors = null;
+    safeSetItem(WATER_LINE_KEY, color);
   });
 }
 

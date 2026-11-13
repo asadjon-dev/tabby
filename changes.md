@@ -2,6 +2,51 @@
 
 Newest first. Each entry says what changed, in which files, and why.
 
+## 2026-11-11 - Line color and background reset in Advanced
+
+**Asked for:** a Reset for the water background color and a color option for the lines.
+
+**newtab.html** - the Advanced panel now has two rows: Background color with a Reset button, and Line color.
+**newtab.css** - `.water-advanced-field` / `.water-advanced-value` lay out the rows; `.water-advanced-reset` is the small reset button.
+**newtab.js** - Reset clears `tabby-water-background-color`, drops the canvas background and restores the theme color in the swatch; the line input sets `water.lineColor`, which `waterColors()` uses for the palette, and saves `tabby-water-line-color`; `syncWaterOptions()` disables both swatches and the Reset with the rest of the controls.
+
+**Checked** - `node --check newtab.js`; in the browser the Reset started disabled, enabled after a custom background and cleared it back to the theme `#1E1D1A`; the line picker set `water.lineColor` and stored `#ff0000`; all controls disabled with the water off.
+
+## 2026-11-11 - Add Advanced water options with a background color
+
+**Asked for:** an Advanced dropdown after Wave speed that lets the user change the water background color.
+
+**newtab.html** - added an "Advanced" trigger after the Wave speed row, using the shared `glide-select` classes so it matches the style dropdown; its panel holds the color input.
+**newtab.css** - `.water-advanced-panel` styles the disclosure body.
+**newtab.js** - the trigger toggles `aria-expanded`, `data-open` and the panel's `hidden`; the color input paints the canvas background and saves it under `tabby-water-background-color`; `waterLightTheme()` reads that color so the lines switch to ink on a light water background; `syncWaterOptions()` disables the trigger and color swatch with the rest of the water controls.
+
+**Checked** - `node --check newtab.js`; in the browser the trigger matches the style select (42px, 12px radius), opens and closes with a rotated chevron, `#336699` paints the canvas and persists, and the trigger/swatch disable when the master toggle is off.
+
+## 2026-11-11 - Move the backup explanation onto an info icon
+
+**Asked for:** drop the Settings/themes/widgets card and put the info icon in front of the "Backup and restore" heading.
+
+**newtab.html** - removed the `.backup-row` card and its text; the heading now leads with a `.water-info` icon carrying the same explanation as its tooltip (`aria-label` for screen readers).
+**newtab.css** - removed the now-unused `.backup-row` rule and added `.backup-heading` for the icon/text alignment.
+
+**Checked** - inspected the section; the card is gone and the icon is the only new visible element, with its text served by the shared tooltip.
+
+## 2026-11-11 - Hide the site icons explanation
+
+**Asked for:** remove the visible help line from the Show site icons card too.
+
+**newtab.html** - dropped the `.interface-color-help` paragraph under "Show site icons"; the card keeps its `data-tooltip`, so the text still appears in the hover bubble.
+
+**Checked** - inspected the card; only the heading and switch remain visible.
+
+## 2026-11-11 - Hide the auto-hide explanation
+
+**Asked for:** remove the line starting "Fade the gear..." from the Corner buttons card.
+
+**newtab.html** - dropped the visible `.interface-color-help` paragraph under "Auto-hide corner buttons"; the card keeps its `data-tooltip`, so the explanation still appears in the hover bubble.
+
+**Checked** - inspected the card; the paragraph is gone and the tooltip text is unchanged.
+
 ## 2026-11-11 - One tooltip for every help card
 
 **Asked for:** review the recent tooltip additions and unify them where the approach is cleaner.

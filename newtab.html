@@ -55,6 +55,27 @@
                 <input id="waterSpeed" type="range" min="0.05" max="1.5" step="0.05" value="0.25">
                 <span class="water-speed-value" id="waterSpeedValue">0.25</span>
               </div>
+              <div class="glide-select water-advanced" id="waterAdvanced" data-open="false">
+                <button class="glide-select__trigger" id="waterAdvancedButton" type="button" aria-expanded="false" aria-controls="waterAdvancedPanel">
+                  <span class="glide-select__value">Advanced</span>
+                  <span class="glide-select__chevron" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M19.9201 8.9502L13.4001 15.4702C12.6301 16.2402 11.3701 16.2402 10.6001 15.4702L4.08008 8.9502" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+                </button>
+                <div class="water-advanced-panel" id="waterAdvancedPanel" hidden>
+                  <div class="water-advanced-field">
+                    <span>Background color</span>
+                    <div class="water-advanced-value">
+                      <input id="waterBackgroundColor" type="color" value="#1e1d1a" aria-label="Water background color">
+                      <button class="water-advanced-reset" id="waterBackgroundReset" type="button">Reset</button>
+                    </div>
+                  </div>
+                  <div class="water-advanced-field">
+                    <span>Line color</span>
+                    <div class="water-advanced-value">
+                      <input id="waterLineColor" type="color" value="#a5a58d" aria-label="Water line color">
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         </div>
@@ -111,14 +132,14 @@
             <section class="custom-colors" aria-label="Site icons">
               <h2>Site icons</h2>
               <div class="custom-color-row" data-tooltip="Uses the icons your browser already has for your bookmarked sites. Off shows the first letter.">
-                <div><label for="siteIconsToggle">Show site icons</label><p class="interface-color-help">Uses the icons your browser already has for your bookmarked sites. Off shows the first letter.</p></div>
+                <div><label for="siteIconsToggle">Show site icons</label></div>
                 <input class="switch-input" id="siteIconsToggle" type="checkbox" role="switch">
               </div>
             </section>
             <section class="custom-colors" aria-label="Corner buttons">
               <h2>Corner buttons</h2>
               <div class="custom-color-row" data-tooltip="Fade the gear and move buttons until you hover over the lower corners.">
-                <div><label for="autoHideControlsToggle">Auto-hide corner buttons</label><p class="interface-color-help">Fade the gear and move buttons until you hover over the lower corners.</p></div>
+                <div><label for="autoHideControlsToggle">Auto-hide corner buttons</label></div>
                 <input class="switch-input" id="autoHideControlsToggle" type="checkbox" role="switch">
               </div>
             </section>
@@ -127,10 +148,7 @@
               <p class="interface-color-help">Your wallpaper, widgets and settings stay in this browser and are never sent anywhere.</p>
             </section>
             <section class="custom-colors" aria-label="Backup">
-              <h2>Backup and restore</h2>
-              <div class="custom-color-row backup-row" data-tooltip="Saves a file you can restore on another computer. You choose what goes in it, including your wallpaper (photo or video) and uploaded font.">
-                <div><span class="row-title">Settings, themes, widgets, font &amp; wallpaper</span><p class="interface-color-help">Saves a file you can restore on another computer. You choose what goes in it, including your wallpaper (photo or video) and uploaded font.</p></div>
-              </div>
+              <h2 class="backup-heading"><span class="water-info" role="img" tabindex="0" aria-label="Saves a file you can restore on another computer. You choose what goes in it, including your wallpaper (photo or video) and uploaded font." data-tooltip="Saves a file you can restore on another computer. You choose what goes in it, including your wallpaper (photo or video) and uploaded font."><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"></circle><path d="M12 10.5V16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path><circle cx="12" cy="7.6" r="1" fill="currentColor"></circle></svg></span>Backup and restore</h2>
               <div class="backup-actions">
                 <button class="font-upload-button" id="exportBackupButton" type="button">Export backup file</button>
                 <button class="font-upload-button" id="importBackupButton" type="button">Restore from file</button>

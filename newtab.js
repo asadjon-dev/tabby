@@ -3944,7 +3944,25 @@ const waterAdvancedPanel = document.getElementById('waterAdvancedPanel');
 const waterBgInput = document.getElementById('waterBackgroundColor');
 const waterBackgroundReset = document.getElementById('waterBackgroundReset');
 const waterLineInput = document.getElementById('waterLineColor');
+const waterLineReset = document.getElementById('waterLineReset');
 const water = { on: false, frame: null, last: 0, time: 0, timeAt: 0, reveal: 0, interactive: true, speed: 0.25, style: 'flux', colors: null, colorsAt: 0, lineColor: null, light: false, batteryPaused: false, gl: null, program: null, uniforms: null, vao: null, palette: null, initTried: false, bands: false, broken: false };
+
+const waterColorFields = [
+  {
+    input: waterBgInput,
+    reset: waterBackgroundReset,
+    key: WATER_BG_KEY,
+    themeVar: '--tabby-ui-background',
+    apply: color => { waterLayer.style.backgroundColor = color || ''; }
+  },
+  {
+    input: waterLineInput,
+    reset: waterLineReset,
+    key: WATER_LINE_KEY,
+    themeVar: '--tabby-accent',
+    apply: color => { water.lineColor = color; water.colors = null; }
+  }
+];
 
 const WATER_MAX_COLORS = 8;
 const WATER_VERTEX = `#version 300 es
@@ -4341,7 +4359,9 @@ function syncWaterOptions() {
   document.querySelectorAll('#waterBackgroundColor + .color-swatch, #waterLineColor + .color-swatch').forEach(button => {
     button.disabled = off;
   });
-  if (waterBackgroundReset) waterBackgroundReset.disabled = off || !localStorage.getItem(WATER_BG_KEY);
+  waterColorFields.forEach(({ reset, key }) => {
+    if (reset) reset.disabled = off || !localStorage.getItem(key);
+  });
   const glideTrigger = document.getElementById('waterStyle-glide-trigger');
   if (glideTrigger) {
     glideTrigger.disabled = off;
@@ -4418,51 +4438,30 @@ if (waterAdvancedButton) {
   });
 }
 
-if (waterBgInput) {
-  const savedBackground = cssColorToHex(localStorage.getItem(WATER_BG_KEY));
-  if (savedBackground) {
-    waterBgInput.value = savedBackground;
-    waterLayer.style.backgroundColor = savedBackground;
-  } else {
-    const themeBackground = cssColorToHex(getComputedStyle(document.documentElement).getPropertyValue('--tabby-ui-background'));
-    if (themeBackground) waterBgInput.value = themeBackground;
+waterColorFields.forEach(({ input, reset, key, themeVar, apply }) => {
+  if (!input) return;
+  const themeColor = () => cssColorToHex(getComputedStyle(document.documentElement).getPropertyValue(themeVar));
+  const saved = cssColorToHex(localStorage.getItem(key));
+  if (saved) {
+    input.value = saved;
+    apply(saved);
+  } else if (themeColor()) {
+    input.value = themeColor();
   }
-  waterBgInput.addEventListener('input', () => {
-    const color = cssColorToHex(waterBgInput.value);
+  input.addEventListener('input', () => {
+    const color = cssColorToHex(input.value);
     if (!color) return;
-    waterLayer.style.backgroundColor = color;
-    safeSetItem(WATER_BG_KEY, color);
-    if (waterBackgroundReset) waterBackgroundReset.disabled = false;
+    apply(color);
+    safeSetItem(key, color);
+    if (reset) reset.disabled = false;
   });
-}
-
-if (waterBackgroundReset) {
-  waterBackgroundReset.addEventListener('click', () => {
-    localStorage.removeItem(WATER_BG_KEY);
-    waterLayer.style.backgroundColor = '';
-    const themeBackground = cssColorToHex(getComputedStyle(document.documentElement).getPropertyValue('--tabby-ui-background'));
-    if (waterBgInput && themeBackground) waterBgInput.value = themeBackground;
-    waterBackgroundReset.disabled = true;
+  reset?.addEventListener('click', () => {
+    localStorage.removeItem(key);
+    apply(null);
+    if (themeColor()) input.value = themeColor();
+    reset.disabled = true;
   });
-}
-
-if (waterLineInput) {
-  const savedLine = cssColorToHex(localStorage.getItem(WATER_LINE_KEY));
-  if (savedLine) {
-    water.lineColor = savedLine;
-    waterLineInput.value = savedLine;
-  } else {
-    const themeLine = cssColorToHex(getComputedStyle(document.documentElement).getPropertyValue('--tabby-accent'));
-    if (themeLine) waterLineInput.value = themeLine;
-  }
-  waterLineInput.addEventListener('input', () => {
-    const color = cssColorToHex(waterLineInput.value);
-    if (!color) return;
-    water.lineColor = color;
-    water.colors = null;
-    safeSetItem(WATER_LINE_KEY, color);
-  });
-}
+});
 
 const savedInteractive = localStorage.getItem(WATER_INTERACTIVE_KEY);
 water.interactive = savedInteractive === null ? true : savedInteractive === '1';

@@ -2,6 +2,23 @@
 
 Newest first. Each entry says what changed, in which files, and why.
 
+## 2026-11-11 - One reset path for the water colors
+
+**Asked for:** review the line-color Reset and let the background and line buttons share one code path.
+
+**newtab.js** - the two duplicated init/reset blocks become one `waterColorFields` list (input, reset, storage key, theme variable, apply function) driven by a single loop; `syncWaterOptions()` reads the same list to disable both Resets. Each field still restores its theme variable and clears its own storage key.
+
+**Checked** - `node --check newtab.js`; in the browser both Resets start disabled, enable after a pick, clear back to the theme color and disable again, and stay disabled with the water off.
+
+## 2026-11-11 - Reset the line color too
+
+**Asked for:** a Reset on the Line color row that returns the lines to the theme accent.
+
+**newtab.html** - the Line color row gets the same small Reset button as the background row.
+**newtab.js** - the button clears `tabby-water-line-color`, sets `water.lineColor` back to null (so `waterColors()` follows `--tabby-accent`) and restores the accent in the swatch; it starts disabled and is disabled again after reset, and `syncWaterOptions()` keeps it disabled with the rest of the controls.
+
+**Checked** - `node --check newtab.js`; inspected the initial, enabled-after-pick, reset and water-off states.
+
 ## 2026-11-11 - Line color and background reset in Advanced
 
 **Asked for:** a Reset for the water background color and a color option for the lines.

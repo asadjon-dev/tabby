@@ -1305,12 +1305,12 @@ const SEARCH_ENGINES = {
   youtube: { label: 'YouTube', url: 'https://www.youtube.com/results?search_query=' }
 };
 const WIDGET_TYPES = {
-  favorites: { label: 'Favorites folder', minWidth: 160, minHeight: 176, defaultName: 'Favorites' },
-  'favorites-v2': { label: 'Favorites folder V2', minWidth: 160, minHeight: 176, defaultName: 'Favorites' },
+  favorites: { label: 'Favorites', minWidth: 160, minHeight: 176, defaultName: 'Favorites' },
+  'favorites-v2': { label: 'Favorites list', minWidth: 160, minHeight: 176, defaultName: 'Favorites' },
   clock: { label: 'Clock', minWidth: 110, minHeight: 56, defaultName: 'Clock' },
-  search: { label: 'Search bar', minWidth: 250, minHeight: 52, defaultName: 'Search' },
-  timer: { label: 'Pomodoro timer', minWidth: 180, minHeight: 110, defaultName: 'Pomodoro' },
-  'timer-v3': { label: 'Pomodoro timer V2', minWidth: 220, minHeight: 220, defaultName: 'Pomodoro' },
+  search: { label: 'Search', minWidth: 250, minHeight: 52, defaultName: 'Search' },
+  timer: { label: 'Timer', minWidth: 180, minHeight: 110, defaultName: 'Timer' },
+  'timer-v3': { label: 'Timer (dark)', minWidth: 220, minHeight: 220, defaultName: 'Timer' },
   weather: { label: 'Weather', minWidth: 180, minHeight: 80, defaultName: 'Weather' },
   notes: { label: 'Notes', minWidth: 220, minHeight: 150, defaultName: 'Notes' }
 };
@@ -5495,6 +5495,616 @@ function drawAurora(now) {
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 
+// ---- Liquid Chrome --------------------------------------------------------------
+// Ported from the LiquidChrome component. The component's ripple feedback needs an
+// extra simulation pass; the wave field and studio reflections carry the look on
+// their own, so this is one fullscreen pass.
+const LIQUID_CHROME_FRAGMENT = `#version 300 es
+precision highp float;
+uniform vec2 uResolution;
+uniform float uUnit;
+uniform float uTime;
+uniform float uAmplitude;
+uniform vec2 uFrequency;
+uniform float uDetail;
+uniform float uSharpness;
+uniform float uDepth;
+uniform float uPresence;
+uniform vec3 uTint;
+uniform vec2 uShift;
+uniform float uRoughness;
+uniform float uExposure;
+uniform float uLight;
+out vec4 fragColor;
+
+float lamp(vec2 p, vec2 center, vec2 size, float soft) {
+  vec2 grown = size + soft;
+  vec2 q = (p - center) / grown;
+  q *= q;
+  float d = sqrt(sqrt(dot(q, q)));
+  float edge = soft / min(grown.x, grown.y);
+  float shape = (1.0 - smoothstep(1.0 - edge, 1.0 + edge, d)) * (1.0 - 0.45 * d * d);
+  return shape * size.x * size.y / (grown.x * grown.y);
+}
+
+vec3 studio(vec3 r, float blur) {
+  vec2 p = r.xy / max(r.z + 1.0, 0.05);
+  p += uShift * smoothstep(0.3, 1.0, length(p));
+  float radius = length(p);
+  float soft = 0.008 + blur;
+  vec2 dir = p / max(radius, 1e-3);
+  float key = lamp(p, vec2(-0.25, 0.42), vec2(0.3, 0.12), soft);
+  float side = lamp(p, vec2(0.48, 0.12), vec2(0.06, 0.3), soft);
+  float ground = lamp(p, vec2(-0.1, -0.55), vec2(0.45, 0.06), soft);
+  float rise = smoothstep(-1.0, 1.0, dir.y);
+  if (uLight > 0.5) {
+    float edge = 0.008 + blur * 0.8;
+    float lobe = smoothstep(0.15, 0.85, 0.5 + 0.5 * sin(atan(dir.y, dir.x) * 2.0 + 0.9));
+    float tone = mix(2.4, 0.95, smoothstep(0.5 - edge, 1.0 + edge, radius));
+    tone = mix(tone, 0.02, smoothstep(0.98 - edge, 1.12 + edge, radius));
+    tone = mix(tone, mix(0.03, 0.3, lobe) * (0.8 + 0.4 * rise), smoothstep(1.15 - edge, 1.3 + edge, radius));
+    float width = 0.035 + edge;
+    tone += 2.4 * exp(-pow((radius - 1.4) / width, 2.0)) * min(1.0, 0.06 / width) * (0.6 + 0.4 * rise);
+    return vec3(tone) * (1.0 - 0.5 * side) * (1.0 - 0.3 * ground) + 0.8 * key;
+  }
+  float width = 0.015 + soft * 2.0;
+  float rim = exp(-abs(radius - 1.0) / width) * 0.031 / width * (0.8 + smoothstep(-0.5, 0.8, p.y));
+  float band = 1.0 - 0.95 * smoothstep(1.04 - soft, 1.12 + soft, radius);
+  float wall = smoothstep(1.25, 1.55, radius) * (0.6 + 0.4 * rise);
+  float streak = smoothstep(0.2, 0.8, 0.5 + 0.5 * sin(atan(dir.y, dir.x) * 3.0 + 0.6));
+  vec3 color = vec3(0.004, 0.004, 0.005) + 0.02 * smoothstep(-0.4, 0.6, p.y);
+  color += vec3(1.0, 0.97, 0.94) * key * 4.0 + vec3(0.9, 0.95, 1.0) * side * 3.0 + ground * 1.2;
+  color += vec3(1.0, 0.98, 0.95) * rim;
+  color *= band;
+  return color + vec3(mix(0.45, 1.8, streak)) * wall;
+}
+
+vec3 shade(vec2 slope, vec3 v, float blur, vec3 f0) {
+  float steep = length(slope);
+  slope *= 3.0 * tanh(steep / 3.0) / max(steep, 1e-6);
+  vec3 n = normalize(vec3(-slope, 1.0));
+  vec3 r = reflect(v, n);
+  float facing = clamp(dot(n, -v), 0.0, 1.0);
+  return studio(r, blur) * (f0 + (1.0 - f0) * pow(1.0 - facing, 5.0));
+}
+
+vec3 aces(vec3 x) {
+  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+
+void main() {
+  vec2 frag = gl_FragCoord.xy;
+  vec2 uv = (2.0 * frag - uResolution) / uUnit;
+  vec2 p = uv;
+  vec2 rowX = vec2(1.0, 0.0);
+  vec2 rowY = vec2(0.0, 1.0);
+  float amplitude = uAmplitude * uPresence;
+  for (float i = 1.0; i < 9.0; i++) {
+    if (i > uDetail) break;
+    float a = amplitude / i;
+    float soften = exp(0.3 - 0.3 * i);
+    float argX = i * uFrequency.x * p.y + uTime;
+    p.x += a * cos(argX);
+    rowX -= a * sin(argX) * i * uFrequency.x * soften * rowY;
+    float argY = i * uFrequency.y * p.x + uTime;
+    p.y += a * cos(argY);
+    rowY -= a * sin(argY) * i * uFrequency.y * soften * rowX;
+  }
+  float phase = uTime - p.x - p.y;
+  vec2 field = -(rowX + rowY);
+  float density = max(length(field), 1e-3);
+  vec2 across = field / density;
+  float k = uSharpness;
+  float sn = sin(phase);
+  float cs = cos(phase);
+  float th = tanh(k * sn);
+  float bevel = (1.0 - th * th) / tanh(k);
+  float fade = smoothstep(3.0, 9.0, 3.14159 * uUnit / density);
+  float weight = uDepth * uPresence * fade;
+  vec2 slope = k * cs * bevel * weight * across;
+  vec2 sweep = -k * bevel * (sn + 2.0 * k * cs * cs * th) * weight * density * 2.0 / uUnit * across;
+  vec2 stepX = dFdx(slope);
+  vec2 stepY = dFdy(slope);
+  vec2 crease = dot(stepX, stepX) > dot(stepY, stepY) ? stepX : stepY;
+  if (dot(crease, crease) > dot(sweep, sweep)) sweep = crease;
+  float bend = length(sweep);
+  float alpha = smoothstep(0.0, 0.1, length(slope));
+  vec3 f0 = mix(vec3(1.0), uTint, smoothstep(0.05, 0.6, length(slope))) * 0.92;
+  vec3 v = normalize(vec3(uv * 0.08, -1.0));
+  float blur = uRoughness * 0.35;
+  vec3 light;
+  if (bend < 0.01) {
+    light = shade(slope, v, blur + bend * 0.5, f0);
+  } else {
+    light = vec3(0.0);
+    for (float t = -0.375; t < 0.4; t += 0.25) {
+      light += shade(slope + sweep * t, v, blur + bend * 0.15, f0);
+    }
+    light *= 0.25;
+  }
+  vec3 color = pow(aces(light * uExposure), vec3(1.0 / 2.2));
+  float grain = fract(52.9829189 * fract(dot(frag, vec2(0.06711056, 0.00583715))));
+  color += (grain - 0.5) / 255.0;
+  fragColor = vec4(clamp(color, 0.0, 1.0) * alpha, alpha);
+}`;
+
+const WATER_TRI_VERTEX = `#version 300 es
+void main() {
+  vec2 corner = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+  gl_Position = vec4(corner * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+const liquidChrome = { gl: null, program: null, uniforms: null, vao: null, time: 0, timeAt: 0, failed: false, tint: new Float32Array(3), tintKey: '', shift: { x: 0, y: 0 } };
+
+function liquidChromeDispose() {
+  const gl = liquidChrome.gl;
+  if (gl && !gl.isContextLost()) {
+    if (liquidChrome.program) gl.deleteProgram(liquidChrome.program);
+    if (liquidChrome.vao) gl.deleteVertexArray(liquidChrome.vao);
+  }
+  liquidChrome.gl = null;
+  liquidChrome.program = null;
+  liquidChrome.uniforms = null;
+  liquidChrome.vao = null;
+  liquidChrome.failed = false;
+  liquidChrome.time = 0;
+  liquidChrome.timeAt = 0;
+}
+
+function liquidChromeInit() {
+  if (liquidChrome.gl) return true;
+  if (liquidChrome.failed) return false;
+  const gl = waterLayer.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' });
+  if (!gl) { liquidChrome.failed = true; water.bands = true; console.warn('[Tabby] Liquid Chrome: WebGL2 is unavailable.'); return false; }
+  const built = waterBuild(gl, WATER_TRI_VERTEX, LIQUID_CHROME_FRAGMENT, null);
+  if (!built) { liquidChrome.failed = true; console.warn('[Tabby] Liquid Chrome: the shader failed to compile.'); return false; }
+  liquidChrome.gl = gl;
+  liquidChrome.program = built.program;
+  liquidChrome.uniforms = built.uniforms;
+  liquidChrome.vao = gl.createVertexArray();
+  return true;
+}
+
+function drawLiquidChrome(now) {
+  if (!liquidChromeInit()) { if (water.bands) drawWaterBands(now); return; }
+  const gl = liquidChrome.gl;
+  const u = liquidChrome.uniforms;
+  const width = Math.max(1, waterLayer.clientWidth);
+  const height = Math.max(1, waterLayer.clientHeight);
+  const ratio = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(2.4e6 / (width * height)));
+  const pixelWidth = Math.max(1, Math.round(width * ratio));
+  const pixelHeight = Math.max(1, Math.round(height * ratio));
+  if (waterLayer.width !== pixelWidth || waterLayer.height !== pixelHeight) {
+    waterLayer.width = pixelWidth;
+    waterLayer.height = pixelHeight;
+  }
+  const dt = liquidChrome.timeAt ? Math.min(Math.max((now - liquidChrome.timeAt) / 1000, 0), 0.1) : 0;
+  liquidChrome.timeAt = now;
+  liquidChrome.time += dt * Math.max(water.speed, 0.05);
+
+  const color = waterParse(waterColors()[0]);
+  const key = color.join(',');
+  if (key !== liquidChrome.tintKey) {
+    liquidChrome.tintKey = key;
+    for (let i = 0; i < 3; i += 1) liquidChrome.tint[i] = Math.pow(color[i], 2.2);
+  }
+
+  let tx = 0.22 * Math.sin(liquidChrome.time * 1.3);
+  let ty = 0.16 * Math.sin(liquidChrome.time * 0.9 + 1.7);
+  if (water.interactive && waterPointer.inside) {
+    tx = (waterPointer.cx / width - 0.5) * 0.5;
+    ty = -(waterPointer.cy / height - 0.5) * 0.5;
+  }
+  const ease = Math.min(1, dt * 6);
+  liquidChrome.shift.x += (tx - liquidChrome.shift.x) * ease;
+  liquidChrome.shift.y += (ty - liquidChrome.shift.y) * ease;
+
+  gl.viewport(0, 0, pixelWidth, pixelHeight);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.disable(gl.BLEND);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.useProgram(liquidChrome.program);
+  gl.bindVertexArray(liquidChrome.vao);
+  gl.uniform2f(u.uResolution, pixelWidth, pixelHeight);
+  gl.uniform1f(u.uUnit, Math.min(pixelWidth, pixelHeight));
+  gl.uniform1f(u.uTime, liquidChrome.time);
+  gl.uniform1f(u.uAmplitude, 0.3);
+  gl.uniform2f(u.uFrequency, 3, 3);
+  gl.uniform1f(u.uDetail, 4);
+  gl.uniform1f(u.uSharpness, 5 / 3);
+  gl.uniform1f(u.uDepth, 1);
+  gl.uniform1f(u.uPresence, 1);
+  gl.uniform3fv(u.uTint, liquidChrome.tint);
+  gl.uniform2f(u.uShift, liquidChrome.shift.x, liquidChrome.shift.y);
+  gl.uniform1f(u.uRoughness, 0.3);
+  gl.uniform1f(u.uExposure, 1);
+  gl.uniform1f(u.uLight, waterLightTheme() ? 1 : 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+// ---- Pixel Blast ----------------------------------------------------------------
+// Ported from the PixelBlast component. The feedback cell pass and hover trail are
+// dropped, so the dithered pixel field is generated directly in the final pass.
+const PIXEL_BLAST_FRAGMENT = `#version 300 es
+precision highp float;
+uniform vec2 uResolution;
+uniform float uTime;
+uniform float uPixelSize;
+uniform float uCell;
+uniform vec3 uColor;
+uniform vec3 uAccent;
+uniform float uDensity;
+uniform float uSoftness;
+uniform float uGlow;
+uniform float uTwinkle;
+uniform float uEdgeFade;
+uniform vec2 uDrift;
+uniform float uLight;
+out vec4 fragColor;
+
+float hash11(float n) { return fract(sin(n) * 43758.5453); }
+
+float vnoise(vec3 p) {
+  vec3 ip = floor(p);
+  vec3 fp = fract(p);
+  float n000 = hash11(dot(ip + vec3(0.0, 0.0, 0.0), vec3(1.0, 57.0, 113.0)));
+  float n100 = hash11(dot(ip + vec3(1.0, 0.0, 0.0), vec3(1.0, 57.0, 113.0)));
+  float n010 = hash11(dot(ip + vec3(0.0, 1.0, 0.0), vec3(1.0, 57.0, 113.0)));
+  float n110 = hash11(dot(ip + vec3(1.0, 1.0, 0.0), vec3(1.0, 57.0, 113.0)));
+  float n001 = hash11(dot(ip + vec3(0.0, 0.0, 1.0), vec3(1.0, 57.0, 113.0)));
+  float n101 = hash11(dot(ip + vec3(1.0, 0.0, 1.0), vec3(1.0, 57.0, 113.0)));
+  float n011 = hash11(dot(ip + vec3(0.0, 1.0, 1.0), vec3(1.0, 57.0, 113.0)));
+  float n111 = hash11(dot(ip + vec3(1.0, 1.0, 1.0), vec3(1.0, 57.0, 113.0)));
+  vec3 w = fp * fp * fp * (fp * (fp * 6.0 - 15.0) + 10.0);
+  float x00 = mix(n000, n100, w.x);
+  float x10 = mix(n010, n110, w.x);
+  float x01 = mix(n001, n101, w.x);
+  float x11 = mix(n011, n111, w.x);
+  float y0 = mix(x00, x10, w.y);
+  float y1 = mix(x01, x11, w.y);
+  return mix(y0, y1, w.z) * 2.0 - 1.0;
+}
+
+float fbm2(vec2 uv, float t) {
+  vec3 p = vec3(uv * 2.0, t);
+  float amp = 1.0;
+  float freq = 1.0;
+  float sum = 1.0;
+  for (int i = 0; i < 5; ++i) {
+    sum += amp * vnoise(p * freq);
+    freq *= 1.25;
+    amp *= 1.0;
+  }
+  return sum * 0.5 + 0.5;
+}
+
+float bayer2(vec2 a) { a = floor(a); return fract(a.x / 2.0 + a.y * a.y * 0.75); }
+float bayer4(vec2 a) { return bayer2(0.5 * a) * 0.25 + bayer2(a); }
+float bayer8(vec2 a) { return bayer4(0.5 * a) * 0.25 + bayer2(a); }
+
+void main() {
+  float aspect = uResolution.x / uResolution.y;
+  vec2 cellId = floor(gl_FragCoord.xy / uCell);
+  vec2 uv = (cellId * uCell) / uResolution * vec2(aspect, 1.0);
+  float base = fbm2(uv + uDrift, uTime * 0.05);
+  base = base * 0.5 - 0.65;
+  float feed = base + (uDensity - 0.5) * 0.3;
+
+  vec2 pixelId = floor(gl_FragCoord.xy / uPixelSize);
+  float bayer = bayer8(pixelId) - 0.5;
+  float margin = feed + bayer - 0.5;
+  float bw = uSoftness > 0.0 ? smoothstep(-0.12 * uSoftness, 0.12 * uSoftness, margin) : step(0.0, margin);
+
+  float h = fract(sin(dot(pixelId, vec2(127.1, 311.7))) * 43758.5453);
+  float wave = 0.5 + 0.5 * sin(uTime * (1.5 + 3.0 * fract(h * 7.31)) + h * 37.0);
+  float M = bw;
+  if (uTwinkle > 0.0) M *= 1.0 - uTwinkle * 0.55 * wave * wave;
+
+  float density = clamp(feed, 0.0, 1.0);
+  float bloom = smoothstep(0.2, 1.0, density);
+  float glow = bloom * bloom * uGlow * (uLight > 0.5 ? 0.12 : 0.22);
+
+  float fade = 1.0;
+  if (uEdgeFade > 0.0) {
+    vec2 norm = gl_FragCoord.xy / uResolution;
+    vec2 edgeA = clamp(norm / uEdgeFade, 0.0, 1.0);
+    vec2 edgeB = clamp((1.0 - norm) / uEdgeFade, 0.0, 1.0);
+    vec2 sa = edgeA * edgeA * edgeA * (edgeA * (edgeA * 6.0 - 15.0) + 10.0);
+    vec2 sb = edgeB * edgeB * edgeB * (edgeB * (edgeB * 6.0 - 15.0) + 10.0);
+    fade = sa.x * sa.y * sb.x * sb.y;
+  }
+  M = clamp(M, 0.0, 1.0) * fade;
+  glow *= fade;
+
+  float hot = clamp((feed - 1.0) * 2.5, 0.0, 1.0) * min(uGlow * 2.0, 1.0);
+  float tone = smoothstep(0.3, 1.0, density) * 0.85;
+  vec3 color = mix(uColor, uAccent, max(tone, hot));
+  vec3 lit = uLight > 0.5 ? color * (1.0 - 0.35 * hot) : mix(color, vec3(1.0), 0.45 * hot);
+  vec3 haze = uLight > 0.5 ? mix(color, vec3(1.0), 0.35) : color;
+  float alpha = M + glow * (1.0 - M);
+  vec3 premul = lit * M + haze * glow * (1.0 - M);
+  fragColor = vec4(premul, alpha);
+}`;
+
+const pixelBlast = { gl: null, program: null, uniforms: null, vao: null, time: 0, timeAt: 0, failed: false, drift: { x: 0, y: 0 } };
+
+function pixelBlastDispose() {
+  const gl = pixelBlast.gl;
+  if (gl && !gl.isContextLost()) {
+    if (pixelBlast.program) gl.deleteProgram(pixelBlast.program);
+    if (pixelBlast.vao) gl.deleteVertexArray(pixelBlast.vao);
+  }
+  pixelBlast.gl = null;
+  pixelBlast.program = null;
+  pixelBlast.uniforms = null;
+  pixelBlast.vao = null;
+  pixelBlast.failed = false;
+  pixelBlast.time = 0;
+  pixelBlast.timeAt = 0;
+}
+
+function pixelBlastInit() {
+  if (pixelBlast.gl) return true;
+  if (pixelBlast.failed) return false;
+  const gl = waterLayer.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' });
+  if (!gl) { pixelBlast.failed = true; water.bands = true; console.warn('[Tabby] Pixel Blast: WebGL2 is unavailable.'); return false; }
+  const built = waterBuild(gl, WATER_TRI_VERTEX, PIXEL_BLAST_FRAGMENT, null);
+  if (!built) { pixelBlast.failed = true; console.warn('[Tabby] Pixel Blast: the shader failed to compile.'); return false; }
+  pixelBlast.gl = gl;
+  pixelBlast.program = built.program;
+  pixelBlast.uniforms = built.uniforms;
+  pixelBlast.vao = gl.createVertexArray();
+  return true;
+}
+
+function drawPixelBlast(now) {
+  if (!pixelBlastInit()) { if (water.bands) drawWaterBands(now); return; }
+  const gl = pixelBlast.gl;
+  const u = pixelBlast.uniforms;
+  const width = Math.max(1, waterLayer.clientWidth);
+  const height = Math.max(1, waterLayer.clientHeight);
+  const ratio = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(1.2e6 / (width * height)));
+  const pixelWidth = Math.max(1, Math.round(width * ratio));
+  const pixelHeight = Math.max(1, Math.round(height * ratio));
+  if (waterLayer.width !== pixelWidth || waterLayer.height !== pixelHeight) {
+    waterLayer.width = pixelWidth;
+    waterLayer.height = pixelHeight;
+  }
+  const dt = pixelBlast.timeAt ? Math.min(Math.max((now - pixelBlast.timeAt) / 1000, 0), 0.1) : 0;
+  pixelBlast.timeAt = now;
+  pixelBlast.time += dt * Math.max(water.speed, 0.05) * 4.0;
+
+  const angle = (30 * Math.PI) / 180;
+  pixelBlast.drift.x += Math.cos(angle) * 0.2 * dt * 0.05;
+  pixelBlast.drift.y += Math.sin(angle) * 0.2 * dt * 0.05;
+
+  const colors = waterColors();
+  const pixelSize = 3 * ratio;
+
+  gl.viewport(0, 0, pixelWidth, pixelHeight);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.useProgram(pixelBlast.program);
+  gl.bindVertexArray(pixelBlast.vao);
+  gl.uniform2f(u.uResolution, pixelWidth, pixelHeight);
+  gl.uniform1f(u.uTime, pixelBlast.time);
+  gl.uniform1f(u.uPixelSize, pixelSize);
+  gl.uniform1f(u.uCell, pixelSize * 8);
+  gl.uniform3fv(u.uColor, waterParse(colors[0]));
+  gl.uniform3fv(u.uAccent, waterParse(colors[1]));
+  gl.uniform1f(u.uDensity, 1);
+  gl.uniform1f(u.uSoftness, 0.6);
+  gl.uniform1f(u.uGlow, 0.4);
+  gl.uniform1f(u.uTwinkle, 0.25);
+  gl.uniform1f(u.uEdgeFade, 0.25);
+  gl.uniform2f(u.uDrift, pixelBlast.drift.x, pixelBlast.drift.y);
+  gl.uniform1f(u.uLight, waterLightTheme() ? 1 : 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.disable(gl.BLEND);
+}
+// ---- Plasma ---------------------------------------------------------------------
+// Ported from the Plasma component. The volume raymarch and the composite are merged
+// into one pass so no half-float render target is needed.
+const PLASMA_FRAGMENT = `#version 300 es
+precision highp float;
+uniform vec2 uResolution;
+uniform float uTime;
+uniform float uScale;
+uniform float uTwist;
+uniform float uWave;
+uniform float uSharpness;
+uniform vec2 uOrbit;
+uniform vec3 uColor;
+uniform vec3 uHighlight;
+uniform vec3 uInk;
+uniform float uGain;
+uniform float uShine;
+uniform float uPresence;
+uniform float uGrain;
+uniform float uFade;
+uniform float uOpacity;
+uniform float uLightMode;
+uniform vec3 uHeat;
+out vec4 outColor;
+
+float hash(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+float smootherstep(float edge, float x) {
+  float t = clamp(x / max(edge, 0.0001), 0.0, 1.0);
+  return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+}
+
+void main() {
+  vec2 frag = gl_FragCoord.xy;
+  vec2 c = (frag - 0.5 * uResolution) / uScale;
+  vec3 rd = normalize(vec3(c, uResolution.y));
+  vec3 ro = vec3(0.0, 0.0, -4.0);
+  float cy = cos(uOrbit.x);
+  float sy = sin(uOrbit.x);
+  float cx = cos(uOrbit.y);
+  float sx = sin(uOrbit.y);
+  mat3 orbit = mat3(cy, 0.0, -sy, 0.0, 1.0, 0.0, sy, 0.0, cy) * mat3(1.0, 0.0, 0.0, 0.0, cx, sx, 0.0, -sx, cx);
+  ro = orbit * ro;
+  rd = orbit * rd;
+  float z = 0.0;
+  float density = 0.0;
+  float band = 0.0;
+  for (int i = 0; i < 32; i++) {
+    vec3 p = ro + rd * z;
+    vec3 s = p;
+    float d = p.y - uTime;
+    p.x += uWave * (1.0 + p.y) * sin(d + p.x * 0.1) * cos(0.34 * d + p.x * 0.05);
+    mat2 spin = mat2(cos(p.y * uTwist + vec4(0.0, 11.0, 33.0, 0.0) - uTime));
+    p.xz *= spin;
+    vec2 q = p.xz;
+    float shell = abs(sqrt(length(q * q)) - 0.25 * (5.0 + s.y)) / 3.0;
+    float stepLength = shell + 0.0008;
+    z += stepLength;
+    float phase = s.y + p.z * 0.5 + s.z - length(s - p);
+    float weight = (1.0 + sin(phase + 8.0)) * exp(-shell * uSharpness) * stepLength;
+    density += weight;
+    band += weight * (0.5 + 0.5 * sin(phase * 0.5 + 1.0));
+  }
+  vec2 offset = (frag - uHeat.xy) / uResolution.y;
+  float heat = uHeat.z * exp(-dot(offset, offset) / 0.05);
+  float dens = density * uGain * uPresence * (1.0 + heat * 0.35);
+  float bands = clamp(band / max(density, 0.00001), 0.0, 1.0);
+  vec3 tint = mix(uColor, uHighlight, bands * 0.35);
+  vec3 hdr = tint * dens + uHighlight * dens * dens * uShine;
+  float peak = max(hdr.r, max(hdr.g, hdr.b));
+  float level = 1.0 - exp(-peak);
+  float hot = smoothstep(1.0, 3.0, peak);
+  vec2 uv = frag / uResolution;
+  float edge = uFade * 0.5;
+  float mask = smootherstep(edge, uv.x) * smootherstep(edge, 1.0 - uv.x) * smootherstep(edge, uv.y) * smootherstep(edge, 1.0 - uv.y);
+  mask *= uOpacity;
+  float grain = (hash(frag + fract(uTime * 7.31) * 113.0) - 0.5) * uGrain;
+  if (uLightMode > 0.5) {
+    vec3 color = mix(uInk, vec3(1.0), hot * 0.75);
+    float alpha = clamp(pow(level, 0.8) * 0.9 * (1.0 + grain), 0.0, 1.0) * mask;
+    outColor = vec4(color * alpha, alpha);
+  } else {
+    vec3 hue = hdr / max(peak, 0.0001);
+    vec3 color = mix(hue * level, vec3(level), hot * 0.6);
+    color = pow(color, vec3(1.0 / 2.2));
+    color = clamp(color + grain * level, 0.0, 1.0) * mask;
+    outColor = vec4(color, max(color.r, max(color.g, color.b)));
+  }
+}`;
+
+const plasmaField = { gl: null, program: null, uniforms: null, vao: null, time: 0, timeAt: 0, failed: false, heat: 0, hx: 0, hy: 0, colorKey: '', color: new Float32Array(3), highlight: new Float32Array(3), ink: new Float32Array(3) };
+
+function plasmaDispose() {
+  const gl = plasmaField.gl;
+  if (gl && !gl.isContextLost()) {
+    if (plasmaField.program) gl.deleteProgram(plasmaField.program);
+    if (plasmaField.vao) gl.deleteVertexArray(plasmaField.vao);
+  }
+  plasmaField.gl = null;
+  plasmaField.program = null;
+  plasmaField.uniforms = null;
+  plasmaField.vao = null;
+  plasmaField.failed = false;
+  plasmaField.time = 0;
+  plasmaField.timeAt = 0;
+}
+
+function plasmaInit() {
+  if (plasmaField.gl) return true;
+  if (plasmaField.failed) return false;
+  const gl = waterLayer.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance' });
+  if (!gl) { plasmaField.failed = true; water.bands = true; console.warn('[Tabby] Plasma: WebGL2 is unavailable.'); return false; }
+  const built = waterBuild(gl, WATER_TRI_VERTEX, PLASMA_FRAGMENT, null);
+  if (!built) { plasmaField.failed = true; console.warn('[Tabby] Plasma: the shader failed to compile.'); return false; }
+  plasmaField.gl = gl;
+  plasmaField.program = built.program;
+  plasmaField.uniforms = built.uniforms;
+  plasmaField.vao = gl.createVertexArray();
+  return true;
+}
+
+function drawPlasma(now) {
+  if (!plasmaInit()) { if (water.bands) drawWaterBands(now); return; }
+  const gl = plasmaField.gl;
+  const u = plasmaField.uniforms;
+  const width = Math.max(1, waterLayer.clientWidth);
+  const height = Math.max(1, waterLayer.clientHeight);
+  const ratio = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(0.45e6 / (width * height)));
+  const pixelWidth = Math.max(1, Math.round(width * ratio));
+  const pixelHeight = Math.max(1, Math.round(height * ratio));
+  if (waterLayer.width !== pixelWidth || waterLayer.height !== pixelHeight) {
+    waterLayer.width = pixelWidth;
+    waterLayer.height = pixelHeight;
+  }
+  const dt = plasmaField.timeAt ? Math.min(Math.max((now - plasmaField.timeAt) / 1000, 0), 0.1) : 0;
+  plasmaField.timeAt = now;
+  plasmaField.time += dt * Math.max(water.speed, 0.05) * 4.0;
+
+  const base = waterParse(waterColors()[0]).map(value => Math.pow(value, 2.2));
+  const key = base.join(',');
+  if (key !== plasmaField.colorKey) {
+    plasmaField.colorKey = key;
+    const tone = 0.2126 * base[0] + 0.7152 * base[1] + 0.0722 * base[2];
+    const depth = Math.min(1, 0.16 / Math.max(tone, 0.001));
+    for (let i = 0; i < 3; i += 1) {
+      plasmaField.color[i] = base[i];
+      plasmaField.highlight[i] = base[i] + (1 - base[i]) * 0.85;
+      plasmaField.ink[i] = Math.pow(Math.min(1, base[i] * depth), 1 / 2.2);
+    }
+  }
+
+  let heatTarget = 0;
+  let hx = width / 2;
+  let hy = height / 2;
+  if (water.interactive && waterPointer.inside) {
+    heatTarget = 1;
+    hx = waterPointer.cx;
+    hy = waterPointer.cy;
+  }
+  plasmaField.heat += (heatTarget - plasmaField.heat) * Math.min(1, dt * 4);
+  plasmaField.hx += (hx - plasmaField.hx) * Math.min(1, dt * 8);
+  plasmaField.hy += (hy - plasmaField.hy) * Math.min(1, dt * 8);
+
+  const yaw = water.interactive && waterPointer.inside ? (waterPointer.cx / width - 0.5) * 0.9 : 0.25 * Math.sin(plasmaField.time * 0.5);
+  const pitch = water.interactive && waterPointer.inside ? (waterPointer.cy / height - 0.5) * 0.18 : 0.08 * Math.sin(plasmaField.time * 0.37);
+
+  gl.viewport(0, 0, pixelWidth, pixelHeight);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.useProgram(plasmaField.program);
+  gl.bindVertexArray(plasmaField.vao);
+  gl.uniform2f(u.uResolution, pixelWidth, pixelHeight);
+  gl.uniform1f(u.uTime, plasmaField.time * 0.4);
+  gl.uniform1f(u.uScale, 1);
+  gl.uniform1f(u.uTwist, 1);
+  gl.uniform1f(u.uWave, 0.4);
+  gl.uniform1f(u.uSharpness, 55);
+  gl.uniform2f(u.uOrbit, yaw, pitch);
+  gl.uniform3fv(u.uColor, plasmaField.color);
+  gl.uniform3fv(u.uHighlight, plasmaField.highlight);
+  gl.uniform3fv(u.uInk, plasmaField.ink);
+  gl.uniform1f(u.uGain, 4.8);
+  gl.uniform1f(u.uShine, 0.025);
+  gl.uniform1f(u.uPresence, 1);
+  gl.uniform1f(u.uGrain, 0.04);
+  gl.uniform1f(u.uFade, 0);
+  gl.uniform1f(u.uOpacity, 1);
+  gl.uniform1f(u.uLightMode, waterLightTheme() ? 1 : 0);
+  gl.uniform3f(u.uHeat, plasmaField.hx * ratio, (height - plasmaField.hy) * ratio, plasmaField.heat);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.disable(gl.BLEND);
+}
+
 // ---- Which background runs ------------------------------------------------------
 function releaseFlux() {
   if (water.gl && !water.gl.isContextLost()) {
@@ -5514,6 +6124,9 @@ function drawWater(now) {
   if (water.style === 'ether') { drawEther(now); return; }
   if (water.style === 'bends') { drawBends(now); return; }
   if (water.style === 'aurora') { drawAurora(now); return; }
+  if (water.style === 'chrome') { drawLiquidChrome(now); return; }
+  if (water.style === 'pixels') { drawPixelBlast(now); return; }
+  if (water.style === 'plasma') { drawPlasma(now); return; }
   drawFlux(now);
 }
 
@@ -5523,6 +6136,9 @@ function applyWaterStyle(style, { render = true } = {}) {
   etherDispose();
   bendsDispose();
   auroraDispose();
+  liquidChromeDispose();
+  pixelBlastDispose();
+  plasmaDispose();
   water.reveal = style === 'flux' ? 0 : 1;
   if (render) {
     pumpWater();
@@ -5531,7 +6147,7 @@ function applyWaterStyle(style, { render = true } = {}) {
 }
 
 const savedStyle = localStorage.getItem(WATER_STYLE_KEY);
-water.style = ['flux', 'ether', 'bends', 'aurora'].includes(savedStyle) ? savedStyle : 'flux';
+water.style = ['flux', 'ether', 'bends', 'aurora', 'chrome', 'pixels', 'plasma'].includes(savedStyle) ? savedStyle : 'flux';
 if (waterStyleSelect) {
   waterStyleSelect.value = water.style;
   enhanceGlideSelect(waterStyleSelect, { ariaLabel: 'Water background', menuWidth: 200 });
@@ -5939,7 +6555,7 @@ function syncEmptyStates() {
   const hasWallpaper = wallpaperList.childElementCount > 0;
   const hasWidgets = widgetList.childElementCount > 0;
   wallpaperEmpty.hidden = hasWallpaper;
-  uploadLabel.textContent = hasWallpaper ? 'Replace photo or video' : 'Add photo or video';
+  uploadLabel.textContent = 'Set photo or video';
   widgetsEmpty.hidden = hasWidgets;
   moveWidgetsButton.hidden = !hasWidgets;
 }

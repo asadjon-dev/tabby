@@ -2,6 +2,53 @@
 
 Newest first. Each entry says what changed, in which files, and why.
 
+## 2026-11-11 - Liquid Chrome, Pixel Blast and Plasma frame rates
+
+**Asked for:** measure the new backgrounds on a real new tab page and lower the internal resolution or raymarch steps if any lag.
+
+Measured at a 1920x1080 viewport (AMD Radeon 610M, D3D11) by sampling `requestAnimationFrame` intervals for 1.6s per style:
+- **Liquid Chrome** - 60 fps at a 2066x1162 backing (2.4e6 budget); left unchanged.
+- **Pixel Blast** - 51 fps at 2066x1162; halved the pixel budget to 1.2e6 (backing 1461x822), now 60 fps.
+- **Plasma** - 31 fps at 1265x712 with a 60-step raymarch; reduced the budget to 0.45e6 (backing 894x503) and the raymarch to 32 steps, now 60 fps.
+
+**newtab.js** - `drawPixelBlast` budget 2.4e6 -> 1.2e6; `drawPlasma` budget 0.9e6 -> 0.45e6 and its loop 60 -> 32 iterations.
+
+**Checked** - `node --check newtab.js`; re-ran the rAF sampling after each change and read pixels back to confirm every style still renders.
+
+## 2026-11-11 - Liquid Chrome, Pixel Blast and Plasma backgrounds
+
+**Asked for:** add more animated water backgrounds.
+
+**newtab.html** - three new options in the Water background select: Liquid Chrome, Pixel Blast, Plasma.
+**newtab.js** - ported the three React Bits-style components to the existing vanilla WebGL2 water engines:
+- **Liquid Chrome** - one fullscreen pass of the chrome wave/studio-reflection shader, tinted from the theme accent and nudged by pointer parallax.
+- **Pixel Blast** - a dithered pixel field generated in one pass (the component's cell-feedback pass is dropped), using the accent colours with edge fade and twinkle.
+- **Plasma** - the volume raymarch and composite merged into a single pass so no half-float render target is needed, with pointer heat and orbit sway.
+
+All three share the `#waterLayer` context, follow the Wave speed slider, and are disposed by `applyWaterStyle()` when another style is chosen.
+
+**Checked** - `node --check newtab.js`; loaded over localhost in the browser, each engine compiled with no shader errors and rendered non-zero pixels (Liquid Chrome full alpha, Pixel Blast sparse pixels, Plasma visible bands). No console errors beyond the expected missing-favicon 404.
+
+## 2026-11-11 - Set photo or video button and water settings in Background
+
+**Asked for:** swap the "+" in the upload button for the image icon, rename the button to "Set photo or video", and move the water background controls into the Background tab.
+
+**newtab.html** - the upload button now carries the image-plus SVG (`.upload-icon`) and the label "Set photo or video"; the water controls (style, moving toggle, interactive toggle, wave speed) moved out of the Settings tab into a `.water-settings` section under the wallpaper list in the Background tab.
+**newtab.js** - `syncEmptyStates()` always labels the button "Set photo or video" instead of switching between Add/Replace.
+**newtab.css** - replaced the old `+` span rule with `.upload-icon` sizing/colour, and added `.water-settings` spacing plus label styling so the moved block keeps its look.
+
+**Checked** - `node --check newtab.js`; confirmed the water controls appear once, inside the Background tab, and the Settings tab no longer contains them.
+
+## 2026-11-11 - Simpler widget names
+
+**Asked for:** rename some widgets to simpler names (e.g. "Favorites folder" to something simpler).
+
+**newtab.js** - `WIDGET_TYPES` labels/defaultNames: "Favorites folder" -> "Favorites", "Favorites folder V2" -> "Favorites list", "Search bar" -> "Search", "Pomodoro timer" -> "Timer", "Pomodoro timer V2" -> "Timer (dark)".
+**newtab.html** - matching option labels in the "Add widget" picker.
+**README.md** - widget list updated to the new names.
+
+**Checked** - `node --check newtab.js`; picker labels and help text reviewed for consistency. Existing widgets keep their saved names.
+
 ## 2026-11-11 - Notes tabs are keyboard accessible
 
 **Asked for:** the Notes widget's tab strip should work from the keyboard and use proper tab roles.

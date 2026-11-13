@@ -670,10 +670,11 @@ body {
     border-color 0.2s,
     background 0.2s;
 }
-.upload-button span[aria-hidden] {
+.upload-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
   color: var(--tabby-accent-muted);
-  font-size: 20px;
-  font-weight: 400;
 }
 .upload-button:hover {
   border-color: var(--tabby-accent);
@@ -864,6 +865,14 @@ body {
 .custom-color-row label { color: #f1f2f8; font-size: 12px; font-weight: 600; }
 .custom-color-row .interface-color-help { margin: 3px 0 0; font-size: 12px; }
 .font-settings > label {
+  color: var(--tabby-text-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+.water-settings {
+  margin-top: 18px;
+}
+.water-settings > label {
   color: var(--tabby-text-dim);
   font-size: 12px;
   font-weight: 600;

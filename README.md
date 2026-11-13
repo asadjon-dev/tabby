@@ -7,7 +7,7 @@ A new tab page for Chrome, Edge and other Chromium browsers. Put your own photo 
 ## Features
 
 - **Photo or video wallpaper**: pick a file or drag it onto the page
-- **Widgets**: favorites, clock, search, notes, weather, Pomodoro timer
+- **Widgets**: favorites, clock, search, notes, weather, timer
 - **Color themes**: choose one, or create and name your own
 - **Make it yours**: fonts, accent colors, and each widget's background and text color
 - **Private**: everything stays in your browser, with no account and no tracking

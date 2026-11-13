@@ -4321,9 +4321,26 @@ function tickWater(now) {
 const savedWater = localStorage.getItem(WATER_KEY);
 water.on = savedWater === null ? true : savedWater === '1';
 waterToggle.checked = water.on;
+const waterOptions = document.getElementById('waterOptions');
+const waterSettings = waterOptions ? waterOptions.closest('.water-settings') : null;
+function syncWaterOptions() {
+  const off = !water.on;
+  if (waterSettings) waterSettings.classList.toggle('is-off', off);
+  if (waterOptions) waterOptions.setAttribute('aria-disabled', String(off));
+  if (waterStyleSelect) waterStyleSelect.disabled = off;
+  const glideTrigger = document.getElementById('waterStyle-glide-trigger');
+  if (glideTrigger) {
+    glideTrigger.disabled = off;
+    glideTrigger.setAttribute('aria-disabled', String(off));
+  }
+  if (waterInteractive) waterInteractive.disabled = off;
+  if (waterSpeed) waterSpeed.disabled = off;
+}
+syncWaterOptions();
 waterToggle.addEventListener('change', () => {
   water.on = waterToggle.checked;
   safeSetItem(WATER_KEY, water.on ? '1' : '0');
+  syncWaterOptions();
   pumpWater();
   haptic('soft');
 });
@@ -4334,6 +4351,7 @@ function turnOffWater() {
   if (!water.on) return;
   water.on = false;
   if (waterToggle) waterToggle.checked = false;
+  syncWaterOptions();
   safeSetItem(WATER_KEY, '0');
   pumpWater();
 }
@@ -6151,6 +6169,7 @@ water.style = ['flux', 'ether', 'bends', 'aurora', 'chrome', 'pixels', 'plasma']
 if (waterStyleSelect) {
   waterStyleSelect.value = water.style;
   enhanceGlideSelect(waterStyleSelect, { ariaLabel: 'Water background', menuWidth: 200 });
+  syncWaterOptions();
   waterStyleSelect.addEventListener('change', () => {
     applyWaterStyle(waterStyleSelect.value);
     safeSetItem(WATER_STYLE_KEY, water.style);
@@ -6540,7 +6559,6 @@ const WIDGET_HELP = {
   'timer-v3': 'A dark Pomodoro card with a ring that burns down, session dots and built-in settings.',
   weather: 'Current temperature and today\u2019s high and low for your city.'
 };
-const wallpaperEmpty = document.getElementById('wallpaperEmpty');
 const widgetsEmpty = document.getElementById('widgetsEmpty');
 const uploadLabel = document.getElementById('uploadLabel');
 const moveWidgetsButton = document.getElementById('moveWidgetsButton');
@@ -6552,9 +6570,7 @@ const widgetTypeHelp = document.getElementById('widgetTypeHelp');
 let pendingDeleteId = null;
 
 function syncEmptyStates() {
-  const hasWallpaper = wallpaperList.childElementCount > 0;
   const hasWidgets = widgetList.childElementCount > 0;
-  wallpaperEmpty.hidden = hasWallpaper;
   uploadLabel.textContent = 'Set photo or video';
   widgetsEmpty.hidden = hasWidgets;
   moveWidgetsButton.hidden = !hasWidgets;

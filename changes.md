@@ -2,6 +2,62 @@
 
 Newest first. Each entry says what changed, in which files, and why.
 
+## 2026-11-11 - Remove the redundant Water background label
+
+**Asked for:** remove the "Water background" label sitting above the Flux Lines dropdown.
+
+**newtab.html** - dropped the `<label for="waterStyle">` from `#waterOptions`; the section already has `aria-label="Water background"`, and the glide select supplies its own `aria-label`, so the control stays labelled for assistive tech.
+
+**Checked** - inspected the markup; the label is gone and the select remains the first item in the options group.
+
+## 2026-11-11 - Two-line water help tooltip
+
+**Asked for:** break the hover help after "over your background." instead of letting it wrap mid-sentence.
+
+**newtab.html** - the `.water-info` `title` now contains a newline (`&#10;`) between the two sentences, so the tooltip shows:
+"Slow flowing lines of light over your background."
+"They stop on battery saver, or when this tab is hidden."
+The `aria-label` stays a single sentence for screen readers.
+
+**Checked** - inspected the attribute; the two sentences are separated by a newline character.
+
+## 2026-11-11 - Remove the "No background yet" card
+
+**Asked for:** remove the empty-state card in the Background tab.
+
+**newtab.html** - dropped the `#wallpaperEmpty` section ("No background yet" and its description).
+**newtab.js** - removed the now-unused `wallpaperEmpty` lookup plus the `hasWallpaper` / `wallpaperEmpty.hidden` lines from `syncEmptyStates()`.
+
+**Checked** - `node --check newtab.js`; no `wallpaperEmpty` references remain and the section tags still balance.
+
+## 2026-11-11 - Water help as a hover info icon, round Interactive switch
+
+**Asked for:** put an icon at the end of the "Moving water background" line that shows the water help text on hover, and make the Interactive checkbox round too.
+
+**newtab.html** - the long water help paragraph is replaced by a `.water-info` info icon next to the master label; its `title` and `aria-label` carry "Slow flowing lines of light over your background. They stop on battery saver, or when this tab is hidden." The Interactive label gains `water-radio`.
+**newtab.css** - added `.water-master-row` and `.water-info` (dimmed at rest, accent on hover/focus), and generalized the round radio styling from `.water-master input` to `.water-radio input` so both toggles are 50%-radius circles with an accent dot.
+
+**Checked** - `node --check newtab.js`; in the browser the info icon exposes the help text via `title` and `aria-label`, both toggles compute to `border-radius: 50%` with `appearance: none`, and the on/off disabled state still works. No console errors.
+
+## 2026-11-11 - Water master toggle on top, round switch, disabled options
+
+**Asked for:** move "Moving water background" above the water style chooser, make it a round radio-style switch, and disable everything inside when it is off.
+
+**newtab.html** - the master toggle now sits above the Water background style select and its help text, with the style, Interactive and Wave speed controls wrapped in `#waterOptions`.
+**newtab.js** - `syncWaterOptions()` disables the native select, its glide-select trigger, Interactive and Wave speed, and toggles `.is-off` on the section. It runs on load, on toggle, when `turnOffWater()` fires, and again after `enhanceGlideSelect()` creates the trigger.
+**newtab.css** - `.water-master input` renders as a 50%-radius radio with an accent dot when checked; `.water-settings.is-off .water-options` dims to 40% and blocks pointer events.
+
+**Checked** - `node --check newtab.js`; in the browser, toggling off set `is-off`, disabled all four controls (native select, glide trigger, Interactive, speed) with opacity 0.4, and toggling on restored them. No console errors.
+
+## 2026-11-11 - Cleaner settings close button
+
+**Asked for:** replace the settings drawer's X with the supplied icon or drop its background.
+
+**newtab.html** - the close button now uses the filled X path from the supplied SVG instead of the two stroked lines.
+**newtab.css** - `.panel-close` loses its filled background and border (both transparent now); the accent border still appears on hover and the focus ring is unchanged.
+
+**Checked** - inspected the markup and CSS; no JavaScript involved.
+
 ## 2026-11-11 - Liquid Chrome, Pixel Blast and Plasma frame rates
 
 **Asked for:** measure the new backgrounds on a real new tab page and lower the internal resolution or raymarch steps if any lag.

@@ -1751,7 +1751,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .widget-list + .add-widget-button { margin-top: 16px; }
 .add-widget-button[hidden] { display: none; }
 .row-title { color: var(--tabby-text); font-size: 13px; font-weight: 600; }
-.panel-close { display: grid; width: 40px; height: 40px; margin-left: auto; flex: none; place-items: center; border: 1px solid var(--tabby-line); border-radius: var(--tabby-radius-sm); background: var(--tabby-button-bg); color: var(--tabby-text); cursor: pointer; }
+.panel-close { display: grid; width: 40px; height: 40px; margin-left: auto; flex: none; place-items: center; border: 1px solid transparent; border-radius: var(--tabby-radius-sm); background: transparent; color: var(--tabby-text); cursor: pointer; }
 .panel-close:hover { border-color: var(--tabby-accent); }
 .panel-close:focus-visible, .welcome-hint button:focus-visible, .move-banner button:focus-visible { outline: 2px solid var(--tabby-accent); outline-offset: 2px; }
 .welcome-hint { position: fixed; right: 26px; bottom: 84px; z-index: 5; display: grid; gap: 8px; width: min(280px, calc(100vw - 52px)); padding: 16px 16px; border: 1px solid var(--tabby-accent); border-radius: var(--tabby-radius-md); background: var(--tabby-ui-background); color: var(--tabby-text); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4); font-family: var(--tabby-font); }
@@ -2036,6 +2036,75 @@ html { background: var(--tabby-ui-background); }
 .water-speed { display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; color: #fff; font-size: 13px; }
 .water-speed label { flex: 0 0 auto; }
 .water-speed input[type="range"] { flex: 1 1 auto; min-width: 0; margin: 0; accent-color: var(--tabby-accent); cursor: pointer; }
+.water-master-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+}
+.water-master {
+  margin: 0;
+  font-weight: 600;
+}
+.water-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--tabby-text-dim);
+  cursor: help;
+}
+.water-info:hover,
+.water-info:focus-visible {
+  color: var(--tabby-accent-light);
+  outline: none;
+}
+.water-info svg {
+  display: block;
+}
+.water-radio input {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 2px solid color-mix(in srgb, var(--tabby-accent) 50%, var(--tabby-edge));
+  border-radius: 50%;
+  background: var(--tabby-button-bg);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.water-radio input::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tabby-accent);
+  transform: scale(0);
+  transition: transform 0.15s ease;
+}
+.water-radio input:checked {
+  border-color: var(--tabby-accent);
+}
+.water-radio input:checked::before {
+  transform: scale(1);
+}
+.water-radio input:focus-visible {
+  outline: 2px solid var(--tabby-accent);
+  outline-offset: 2px;
+}
+.water-options {
+  margin-top: 10px;
+  transition: opacity 0.2s;
+}
+.water-settings.is-off .water-options {
+  opacity: 0.4;
+  pointer-events: none;
+}
 .water-speed-value { flex: 0 0 auto; min-width: 32px; text-align: right; color: var(--tabby-text-dim); font-variant-numeric: tabular-nums; }
 
 /* Press feedback on every control (the scale property, so existing transforms stay) */

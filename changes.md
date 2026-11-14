@@ -2,6 +2,126 @@
 
 Newest first. Each entry says what changed, in which files, and why.
 
+## 2026-11-14 - Move the timer session icon beside its label
+
+**Asked for:** remove the eye icon above the timer or find it a more natural place.
+
+**newtab.js** - the floating mode icon above the time is gone. Focus no longer renders the eye at all; break sessions keep their cup, now inside the session label beside "Short break" or "Long break". The label text has its own span so the timer can repaint the words without touching the glyph.
+
+**newtab.css** - the session label is a centered flex row with a 13px glyph and a 4px gap.
+
+**Checked** - `node --check newtab.js`; in the browser the dark timer shows "Short break" with the cup inline at 13px, no console errors. The live timer was a paused 5-minute break, so I did not switch it to Focus; the eye's removal is the `state.mode === 'focus'` branch.
+
+## 2026-11-14 - Rebuild the settings panel around its three tabs
+
+**Asked for:** a full redesign of the Background, Widgets and Settings tabs with the installed unslop skill.
+
+**Direction:** a stone drawer by a window. Warm flat surfaces, one quiet accent, a sticky segmented switcher, hairline section rules and Reicon line icons. No glows or decorative gradients: the wallpaper and widgets stay the scenery.
+
+**newtab.html** - the tabs sit in a segmented track with Reicon icons; Background is split into Wallpaper and Water; the upload becomes a drop card with an icon tile; Widgets gets a solid accent Add widget action, a designed empty state and a resize icon; Settings is rebuilt into Appearance, Custom colors, Interface, Privacy and Backup groups. Every control keeps its ID, label, tooltip and value.
+
+**newtab.css** - a new end-of-file layer for the panel: compact brand header, sticky tab track, section rules, card surfaces, 40px controls, grouped water rows, color swatch rows, stacked backup actions, and a 320-420px width treatment.
+
+**newtab.js** - `syncMoveUi()` writes the move-mode label into `#moveWidgetsLabel`, so the icon survives the text change.
+
+**i18n.js** - adds Wallpaper, Water, Appearance, Interface and Style in all seven languages.
+
+**Checked** - at 340px and the 320px panel minimum: tab labels fit, no horizontal scroll, no duplicate IDs; English and Russian section labels and controls; keyboard ArrowRight between tabs; water master off/on disables and re-enables its controls; Advanced opens; Add widget dialog opens; move-mode label changes while the icon stays; theme-create layout; empty state; no console errors. File uploads, backup export/restore and panel dragging were not exercised.
+
+## 2026-11-11 - Give the widget list room to breathe
+
+**Asked for:** the widget row and the "Move or resize widgets" button were crammed together.
+
+**newtab.css** - the empty-state paragraph now sits between the list and the Move button, which broke the adjacent-sibling margin selector; the selector covers both layouts so the button keeps its 16px top margin. The widget row title also drops to 500 to match the other controls.
+
+**Checked** - with three widgets the last row and the Move button are 16px apart; the row title is 500; no console errors.
+
+## 2026-11-11 - Unslop polish: quiet the chrome and the widgets
+
+**Asked for:** apply the unslop audit's highest-value fixes, keeping the existing Stone path direction.
+
+**newtab.css** - the quick controls fade out while the settings panel or widget editor is open, so they no longer cover the panel footer; panel/dialog shadows softened from an 80px black drop to a 44px neutral one; the timer's uppercase tracked labels, arc/head glows, checked-toggle glow and lavender focus/fallback colors are gone; timer progress animates `scaleX` instead of width; 600 was reduced to 500 on tabs (base), labels, buttons and row titles while the panel and dialog titles keep 600; added the empty-state styles.
+
+**newtab.html** - the Widgets tab now has a quiet empty-state line naming the available widgets; the font-status line lost its trailing period.
+
+**newtab.js** - timer progress writes a transform; the font status copy matches the new text.
+
+**i18n.js** - the empty-state line and the updated font-status key are translated into all seven languages.
+
+**Checked** - `node --check` on both scripts; with the panel open the quick controls reach opacity 0 and pointer-events none; the empty state shows with no widgets and hides after adding one; the timer shows "Focus"/"Start", has no glow, and its progress transform advances while running; Russian empty-state and font-status text render; no new console errors (the external release check still 404s).
+
+## 2026-11-11 - Move the widgets hint to the Add widget button
+
+**Asked for:** the "Widgets appear on your new tab page..." hint sat on the Widgets tab; move it to the Add widget button.
+
+**newtab.html** - the `data-tooltip` moved from `#widgetsTab` to `#addWidgetButton`, so the tab has no hint and the bubble appears over the button that adds a widget.
+
+**Checked** - hovering Add widget showed the bubble; the Widgets tab has no tooltip; the Russian translation still applies and English restores.
+
+## 2026-11-11 - Fix the stuck dropdown label and translate the info tooltips
+
+**Asked for:** the font dropdown stayed Russian after switching back, and the info tooltips were still English.
+
+**newtab.js** - language changes now rebuild the theme, font and widget dropdowns, so their custom triggers and rows are rebuilt from the newly translated options instead of keeping the old label.
+
+**i18n.js** - added translations for the info tooltips (widgets, water, site icons, corner buttons, backup), "Enable widget moving and resizing" and "Uploaded font"; attribute keys normalize whitespace so the two-line water tooltips match.
+
+**Checked** - `node --check` on both scripts; English to Russian to English changed the font trigger and rows both ways; the site icons tooltip rendered in Russian and returned to English; no console errors.
+
+## 2026-11-11 - Translate the interface with the language selector
+
+**Asked for:** make the language choice actually change the interface language.
+
+**i18n.js** - new file with translations for Russian, Chinese, German, Spanish, French, Turkish and Uzbek, keyed by the English interface text, plus a small DOM/attribute translator.
+
+**newtab.js** - `applyLanguage()` runs on load and whenever the language changes, so the saved choice is applied immediately and survives reloads; switching back to English restores the original text.
+
+**newtab.html** - loads `i18n.js` before `newtab.js`.
+
+**Checked** - `node --check` on both scripts; switched between English, Russian, Chinese and Uzbek in the browser; tab labels, settings labels and the language trigger all followed the choice with no console errors.
+
+## 2026-11-11 - Use the supplied SVG for every flag
+
+**Asked for:** replace the hand-drawn flags with the SVGs supplied for each language.
+
+**newtab.js** - the `en`, `ru`, `zh`, `de`, `es` and `fr` entries in `LANGUAGE_FLAGS` now use the supplied nc-icon SVGs; `tr` and `uz` already use the supplied ones.
+
+**Checked** - `node --check newtab.js`; inspected the menu, each row renders its supplied flag.
+
+## 2026-11-11 - Use the supplied Turkish flag
+
+**Asked for:** the exact Turkish flag SVG.
+
+**newtab.js** - the `tr` entry in `LANGUAGE_FLAGS` is now the supplied red flag with the white crescent and five-point star.
+
+**Checked** - `node --check newtab.js`; inspected the menu, Türkçe uses the red crescent flag.
+
+## 2026-11-11 - Fix the Turkish flag
+
+**Asked for:** the Turkish option was showing the Uzbek flag.
+
+**newtab.js** - the detailed blue/white/green SVG that sat on `tr` is the Uzbekistan flag, so it moved to `uz`; `tr` now has a red Turkish flag with a white crescent and star.
+
+**Checked** - `node --check newtab.js`; inspected the menu, Türkçe uses the red flag and Oʻzbekcha keeps the striped one.
+
+## 2026-11-11 - Language dropdown in Settings
+
+**Asked for:** a Language option in Settings, using the same dropdown as Color theme with flag icons and names.
+
+**newtab.html** - added the Language label and select with English, Russian, Chinese, German, Spanish, French, Turkish and Uzbek.
+**newtab.css** - the glide-select value now holds an icon and a text span; added the flag icon and option-main styles.
+**newtab.js** - `enhanceGlideSelect()` accepts an optional `icons` map and renders it in the trigger and the options; `LANGUAGE_FLAGS` holds compact SVG flags; the choice is saved under `tabby-language`, restored on load and copied to `document.documentElement.lang`.
+
+**Checked** - `node --check newtab.js`; in the browser the trigger showed English with the UK flag, all eight options had flags, picking Russian updated the trigger, stored `ru`, set the page language and survived a reload. The Color theme dropdown kept its text with no empty icon gap.
+
+## 2026-11-11 - Widgets intro on hover
+
+**Asked for:** make the Widgets tab intro text appear on hover like the settings card tooltips.
+
+**newtab.html** - removed the visible `.tab-intro` paragraph from the Widgets view and moved its text into a `data-tooltip` on the Widgets tab button, so hovering or focusing the tab shows the explanation in the shared bubble.
+
+**Checked** - inspected the tab and view; the paragraph is gone and the tab carries the text.
+
 ## 2026-11-11 - One reset path for the water colors
 
 **Asked for:** review the line-color Reset and let the background and line buttons share one code path.
